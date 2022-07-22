@@ -1,0 +1,11 @@
+# Set environment and import data
+```{r}
+rm(list=ls())
+install.packages("rjags")
+```
+
+```{r}
+wine=readRDS(file="./data/wine.Rda")
+summary(wine)
+```
+# Something
