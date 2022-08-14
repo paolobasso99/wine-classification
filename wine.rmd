@@ -15,6 +15,10 @@ summary(wine)
 library("ggplot2")
 
 ```
+```{r}
+hist(wine$quality, freq=TRUE, border="#55D8C1", col="#FCF69C", plot=TRUE)
+```
+
 We may think using both Pearson and Spearman rank correlation coefficient:
 \begin{itemize}
   \item Pearson captures linear relationships
@@ -41,7 +45,8 @@ correlation_with_quality["value"] = abs(correlation_with_quality["value"])
 correlation_with_quality = correlation_with_quality[order(correlation_with_quality$value, decreasing = TRUE),]
 correlation_with_quality
 ```
-
+Considerations: the parameters are sorted by importance. We may expect to keep the parameters with the highest correlation index with quality while performing 
+feature selection.
 ```{r}
 correlation_with_quality$value
 
@@ -52,31 +57,42 @@ boxplot(wine, las=3,main="Covariates boxplot",cex.axis=0.75)
 ```
 
 ```{r}
-boxplot(wine$total.sulfur.dioxide, las=3,main="total sulfur dioxide boxplot",cex.axis=0.75)
-```
-```{r}
-boxplot(wine$free.sulfur.dioxide, las=2,main="free sulfur dioxide boxplot", cex.axis=0.75)
-```
-```{r}
 info = boxplot(wine$free.sulfur.dioxide, las=2,main="free sulfur dioxide boxplot", cex.axis=0.75, plot=FALSE)
 outliers = info$out
 outliers
 ```
 
+
+Method used to find the indexes of outliers (rows that contains at least one value that is outlier)
 ```{r}
-hist(wine$free.sulfur.dioxide, freq=TRUE, border="#55D8C1", col="#FCF69C")
-```
+upper_bounds = vector()
+lower_bounds = vector()
+for(i in 1: ncol(wine)){
+  q3 = quantile(wine[, i], 0.75)
+  q1 = quantile(wine[, i], 0.25)
+  interquantile_range = q3 - q1
+  upper_bounds = append(upper_bounds, q3 + 1.5 * interquantile_range)
+  lower_bounds = append(lower_bounds, q1 - 1.5 * interquantile_range)
+}
 
 
-```{r}
-hist(wine$quality, freq=TRUE, border="#55D8C1", col="#FCF69C", plot=FALSE)
-```
+outliers_index = vector()
 
-```{r}
-length(wine$quality)
-```
-```{r}
-table(unlist(wine$quality))
+
+for(i in 1: nrow(wine)){
+  is_outlier = FALSE
+  j = 1
+  while(j <= ncol(wine) & !is_outlier){
+    if(wine[i, j] > upper_bounds[j]){
+      outliers_index = append(outliers_index, i)
+      is_outlier = !is_outlier
+    }
+    j = j + 1
+  }
+}
+
+print(length(outliers_index))
+print(nrow(wine))
 ```
 
 
@@ -84,6 +100,20 @@ table(unlist(wine$quality))
 2.02 I don't understand
 Bayesian Learning Lecture 9 - to see how to write the predictive distribution-
 ascii ~ = 126
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
