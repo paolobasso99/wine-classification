@@ -83,7 +83,7 @@ for(i in 1: nrow(wine)){
   is_outlier = FALSE
   j = 1
   while(j <= ncol(wine) & !is_outlier){
-    if(wine[i, j] > upper_bounds[j]){
+    if(wine[i,j] < lower_bounds[j] | wine[i, j] > upper_bounds[j]){
       outliers_index = append(outliers_index, i)
       is_outlier = !is_outlier
     }
