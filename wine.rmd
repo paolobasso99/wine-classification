@@ -2,6 +2,7 @@
 ```{r}
 rm(list=ls())
 install.packages("rjags")
+install.packages("ggplot2")
 ```
 
 ```{r}
@@ -9,3 +10,91 @@ wine=readRDS(file="./data/wine.Rda")
 summary(wine)
 ```
 # Something
+
+```{r}
+library("ggplot2")
+
+```
+We may think using both Pearson and Spearman rank correlation coefficient:
+\begin{itemize}
+  \item Pearson captures linear relationships
+  \item Spearman captures monotonic relationships
+\end{itemize}
+```{r}
+library(reshape2)
+melted_wine <- melt(cor(wine))
+head(melted_wine)
+ggplot(data = melted_wine, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile(color = "white") + 
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-1,1), space = "Lab", 
+   name="Pearson\nCorrelation") + theme_minimal()+ 
+ theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+    size = 12, hjust = 1))+
+ coord_fixed()
+
+```
+
+```{r}
+correlation_with_quality = tail(melted_wine, n=12)
+correlation_with_quality["value"] = abs(correlation_with_quality["value"])
+correlation_with_quality = correlation_with_quality[order(correlation_with_quality$value, decreasing = TRUE),]
+correlation_with_quality
+```
+
+```{r}
+correlation_with_quality$value
+
+```
+
+```{r}
+boxplot(wine, las=3,main="Covariates boxplot",cex.axis=0.75)
+```
+
+```{r}
+boxplot(wine$total.sulfur.dioxide, las=3,main="total sulfur dioxide boxplot",cex.axis=0.75)
+```
+```{r}
+boxplot(wine$free.sulfur.dioxide, las=2,main="free sulfur dioxide boxplot", cex.axis=0.75)
+```
+```{r}
+info = boxplot(wine$free.sulfur.dioxide, las=2,main="free sulfur dioxide boxplot", cex.axis=0.75, plot=FALSE)
+outliers = info$out
+outliers
+```
+
+```{r}
+hist(wine$free.sulfur.dioxide, freq=TRUE, border="#55D8C1", col="#FCF69C")
+```
+
+
+```{r}
+hist(wine$quality, freq=TRUE, border="#55D8C1", col="#FCF69C", plot=FALSE)
+```
+
+```{r}
+length(wine$quality)
+```
+```{r}
+table(unlist(wine$quality))
+```
+
+
+1.50 min for softmax video
+2.02 I don't understand
+Bayesian Learning Lecture 9 - to see how to write the predictive distribution-
+ascii ~ = 126
+
+
+
+
+
+
+
+
+
+
+
+
+
+
