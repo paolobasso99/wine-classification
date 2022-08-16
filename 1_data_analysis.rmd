@@ -17,83 +17,8 @@ wine=readRDS(file="./data/wine.Rda")
 ```
 
 # Functions
-
 ```{r}
-# plot correlation matrix of a given data frame df. 
-# assign a name name_corr to the plot.
-plot_correlation <- function(df, name_corr){
-  melted_df <- melt(cor(df))
-  ggplot(data = melted_df, aes(x=Var1, y=Var2, fill=value)) + 
-    geom_tile(color = "white") + 
-    scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
-     midpoint = 0, limit = c(-1,1), space = "Lab", 
-     name=name_corr) + theme_minimal()+ 
-   theme(axis.text.x = element_text(angle = 45, vjust = 1, 
-      size = 12, hjust = 1))+
-   coord_fixed()
-}
-
-
-# df_melted: melted data frame
-# corr_degree: degree of correlation over which two covariates are considered
-#              highly correlated according to the Pearson index
-# target: is the target variable, so the one to predict
-# return a data frame containing pairs of covariates with high correlation and 
-# the absolute value of their correlation coefficient.
-find_competitive_covariates <- function(df_melted, corr_degree, target){
-  correlated_covariates = data.frame("Var1"=c(), "Var2"=c(), "value"=c())
-  pairs_seen = data.frame("Var1"=c(), "Var2"=c())
-  # finding highly correlated covariates 
-  for(i in 1: nrow(df_melted)){
-    new_row = df_melted[i,]
-    if(abs(new_row$value) >= corr_degree
-       & new_row$Var1 != new_row$Var2
-       & new_row$Var1 != target 
-       & new_row$Var2 != target){
-          new_pair = data.frame("Var1"=c(new_row$Var1), "Var2"=c(new_row$Var2))
-          # checks if this pair has been already visited
-          if(nrow(merge(data.frame("Var1"=c(new_row$Var2), "Var2"=c(new_row$Var1)), pairs_seen)) == 0){
-            pairs_seen <- rbind(pairs_seen, new_pair)
-            new_row$value <- abs(new_row$value)
-            correlated_covariates <- rbind(correlated_covariates, new_row)
-          }
-       }
-  }
-  correlated_covariates = correlated_covariates[order(correlated_covariates$value, decreasing=TRUE),]
-  return(correlated_covariates)
-}
-
-
-# find and remove the outliers of data frame df.
-# in this function it is assumed that the target value is always the last column.
-# Outliers of the target are kept.
-remove_outliers <- function(df){
-  upper_bounds = vector()
-  lower_bounds = vector()
-  for(i in 1: ncol(df)){
-    q3 = quantile(df[, i], 0.75)
-    q1 = quantile(df[, i], 0.25)
-    interquantile_range = q3 - q1
-    upper_bounds = append(upper_bounds, q3 + 1.5 * interquantile_range)
-    lower_bounds = append(lower_bounds, q1 - 1.5 * interquantile_range)
-  }
-  outliers_index = vector()
-  for(i in 1: nrow(df)){
-    is_outlier = FALSE
-    j = 1
-    # quality is the last column and should not be considered
-    while(j <= ncol(df) - 1 & !is_outlier){
-      if( df[i, j] > upper_bounds[j]){
-        outliers_index = append(outliers_index, i)
-        is_outlier = !is_outlier
-      }
-      j = j + 1
-    }
-  }
-  return(df[-outliers_index,])
-}
-
-
+source("utils_functions.R")
 ```
 
 # Data analysis
@@ -200,3 +125,20 @@ boxplot(filtered_wine, las=3,main="Covariates boxplot",cex.axis=0.75)
 wine_f_m = remove_outliers(filtered_wine)
 nrow(wine_f_m)
 ```
+
+
+simple regression( Gaussian / poisson ???? likelihood):
+  - Lasso prior 
+  - spikes & slab
+make some analysis with both datasets (with/without outliers)
+
+classification (categorical distribution likelihood):
+  - Lasso prior ~ vlad
+  - spikes & slab ~ joy
+
+sensitive analysis 
+compare posterior distributions of the betas.
+
+
+
+
