@@ -75,3 +75,31 @@ remove_outliers <- function(df){
   }
   return(df[-outliers_index,])
 }
+
+# given a data frame df, this function returns a new data frame replacing its 
+# column "quality" with the columns (y1, y2, .., y10) that represent the one
+# hot encoding of the values "quality.
+to_one_hot <- function(df){
+  one_hot_df <- data.frame(
+    "y1"=rep(0, nrow(df)),
+    "y2"=rep(0, nrow(df)),
+    "y3"=rep(0, nrow(df)),
+    "y4"=rep(0, nrow(df)),
+    "y5"=rep(0, nrow(df)),
+    "y6"=rep(0, nrow(df)),
+    "y7"=rep(0, nrow(df)),
+    "y8"=rep(0, nrow(df)),
+    "y9"=rep(0, nrow(df)),
+    "y10"=rep(0, nrow(df))
+  )
+  for (i in 1: nrow(df)){
+    qlty_value = df[i,]$quality
+    one_hot_df[i, qlty_value] = 1
+  }
+  new_df <-cbind(df, one_hot_df)
+  new_df <-new_df[,!names(df) %in% c("quality")]
+  return(new_df)
+}
+
+
+
