@@ -6,7 +6,7 @@ install.packages("ggplot2")
 ```
 
 ```{r}
-wine=readRDS(file="./data/wine.Rda")
+wine <- readRDS(file="./data/wine.Rda")
 summary(wine)
 ```
 # Something

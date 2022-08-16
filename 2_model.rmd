@@ -1,0 +1,81 @@
+# Set environment and import data
+```{r}
+rm(list=ls())
+library("rjags")
+```
+
+```{r}
+wine=readRDS(file="./data/wine.Rda")
+summary(wine)
+N=nrow(wine)
+```
+# Something
+```{r}
+hist(wine$quality)
+```
+
+
+```{r}
+plot(wine$pH, wine$quality)
+```
+```{r}
+cat(
+  "
+  model {
+    # Likelihood
+    for (i in 1:N) {
+      y[i] ~ dcat(theta[i,1:10])
+      
+      theta[i,1] <- pnorm(treshold[1],mu[i],1/sd^2)
+      
+      for (k in 2:9) {
+        theta[i,k] <- max(0, pnorm(treshold[k],mu[i],1/sd^2) - pnorm(treshold[k-1],mu[i],1/sd^2))
+      }
+      
+      theta[i,10] <- 1-pnorm(treshold[9],mu[i],1/sd^2)
+      
+      mu[i] = a0
+    }
+    # Priors
+    a0 ~ dnorm(6.0, 10.0)
+    sd ~ dnorm(0.0, 10.0)
+    
+    for (k in 2:9) {
+      treshold[k] ~ dnorm(0.0, 4.0)
+    }
+  }
+  "
+, file = "models/ordinal_logistic.bug")
+
+# Set up the data
+treshhold <- rep(NA, 9)
+treshhold[1] <- 1.5
+treshhold[10] <- 9.5
+model_data <- list(
+  N = nrow(wine),
+  y = wine$quality,
+  treshold = treshhold
+)
+
+# Choose the parameters to watch
+model_parameters <- c("theta", "mu")
+
+# Compile the model
+model <- jags.model(file = "models/ordinal_logistic.bug",
+                    data = model_data, n.adapt = 100)
+```
+
+```{r}
+cat("  Updating...\n")
+update(model, n.iter = 100)
+```
+
+```{r}
+# Sampling from the posterior
+cat("  Sampling...\n")
+results <- coda.samples(model, variable.names = model_parameters,
+                        n.iter = 1000, thin = 5)
+
+# Save the chain
+save(results, file = 'chains/BL_probit.dat')
+```
