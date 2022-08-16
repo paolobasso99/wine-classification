@@ -1,43 +1,156 @@
 # Set environment and import data
+
 ```{r}
 rm(list=ls())
 install.packages("rjags")
 install.packages("ggplot2")
-```
-
-```{r}
-wine <- readRDS(file="./data/wine.Rda")
-summary(wine)
-```
-# Something
-
-```{r}
-library("ggplot2")
-
-```
-```{r}
-hist(wine$quality, freq=TRUE, border="#55D8C1", col="#FCF69C", plot=TRUE)
-```
-
-We may think using both Pearson and Spearman rank correlation coefficient:
-\begin{itemize}
-  \item Pearson captures linear relationships
-  \item Spearman captures monotonic relationships
-\end{itemize}
-```{r}
+install.packages("patchwork")
 library(reshape2)
-melted_wine <- melt(cor(wine))
-head(melted_wine)
-ggplot(data = melted_wine, aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile(color = "white") + 
-  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
-   midpoint = 0, limit = c(-1,1), space = "Lab", 
-   name="Pearson\nCorrelation") + theme_minimal()+ 
- theme(axis.text.x = element_text(angle = 45, vjust = 1, 
-    size = 12, hjust = 1))+
- coord_fixed()
+library("ggplot2")
+library(patchwork)
+```
+
+reading data
+
+```{r}
+wine=readRDS(file="./data/wine.Rda")
+```
+
+# Functions
+
+```{r}
+# plot correlation matrix of a given data frame df. 
+# assign a name name_corr to the plot.
+plot_correlation <- function(df, name_corr){
+  melted_df <- melt(cor(df))
+  ggplot(data = melted_df, aes(x=Var1, y=Var2, fill=value)) + 
+    geom_tile(color = "white") + 
+    scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+     midpoint = 0, limit = c(-1,1), space = "Lab", 
+     name=name_corr) + theme_minimal()+ 
+   theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+      size = 12, hjust = 1))+
+   coord_fixed()
+}
+
+
+# df_melted: melted data frame
+# corr_degree: degree of correlation over which two covariates are considered
+#              highly correlated according to the Pearson index
+# target: is the target variable, so the one to predict
+# return a data frame containing pairs of covariates with high correlation and 
+# the absolute value of their correlation coefficient.
+find_competitive_covariates <- function(df_melted, corr_degree, target){
+  correlated_covariates = data.frame("Var1"=c(), "Var2"=c(), "value"=c())
+  pairs_seen = data.frame("Var1"=c(), "Var2"=c())
+  # finding highly correlated covariates 
+  for(i in 1: nrow(df_melted)){
+    new_row = df_melted[i,]
+    if(abs(new_row$value) >= corr_degree
+       & new_row$Var1 != new_row$Var2
+       & new_row$Var1 != target 
+       & new_row$Var2 != target){
+          new_pair = data.frame("Var1"=c(new_row$Var1), "Var2"=c(new_row$Var2))
+          # checks if this pair has been already visited
+          if(nrow(merge(data.frame("Var1"=c(new_row$Var2), "Var2"=c(new_row$Var1)), pairs_seen)) == 0){
+            pairs_seen <- rbind(pairs_seen, new_pair)
+            new_row$value <- abs(new_row$value)
+            correlated_covariates <- rbind(correlated_covariates, new_row)
+          }
+       }
+  }
+  correlated_covariates = correlated_covariates[order(correlated_covariates$value, decreasing=TRUE),]
+  return(correlated_covariates)
+}
+
+
+# find and remove the outliers of data frame df.
+# in this function it is assumed that the target value is always the last column.
+# Outliers of the target are kept.
+remove_outliers <- function(df){
+  upper_bounds = vector()
+  lower_bounds = vector()
+  for(i in 1: ncol(df)){
+    q3 = quantile(df[, i], 0.75)
+    q1 = quantile(df[, i], 0.25)
+    interquantile_range = q3 - q1
+    upper_bounds = append(upper_bounds, q3 + 1.5 * interquantile_range)
+    lower_bounds = append(lower_bounds, q1 - 1.5 * interquantile_range)
+  }
+  outliers_index = vector()
+  for(i in 1: nrow(df)){
+    is_outlier = FALSE
+    j = 1
+    # quality is the last column and should not be considered
+    while(j <= ncol(df) - 1 & !is_outlier){
+      if( df[i, j] > upper_bounds[j]){
+        outliers_index = append(outliers_index, i)
+        is_outlier = !is_outlier
+      }
+      j = j + 1
+    }
+  }
+  return(df[-outliers_index,])
+}
+
 
 ```
+
+# Data analysis
+
+Plotting the distribution of quality wines.
+
+```{r}
+colnames(wine)
+```
+
+```{r}
+# settings
+alpha_density = .2
+
+bars_color = "purple"
+edges_color = "purple"
+  
+
+# plots
+p1 <- ggplot(data=wine, aes(x=fixed.acidity)) + geom_histogram(color=edges_color, fill=bars_color)
+p2 <- ggplot(data=wine, aes(x=volatile.acidity)) + geom_histogram(color=edges_color, fill=bars_color)
+p3 <- ggplot(data=wine, aes(x=citric.acid)) + geom_histogram(color=edges_color, fill=bars_color)
+p4 <- ggplot(data=wine, aes(x=residual.sugar)) + geom_histogram(color=edges_color, fill=bars_color)
+p5 <- ggplot(data=wine, aes(x=chlorides)) + geom_histogram(color=edges_color, fill=bars_color)
+p6 <- ggplot(data=wine, aes(x=free.sulfur.dioxide)) + geom_histogram(color=edges_color, fill=bars_color)
+p7 <- ggplot(data=wine, aes(x=total.sulfur.dioxide)) + geom_histogram(color=edges_color, fill=bars_color)
+p8 <- ggplot(data=wine, aes(x=density)) + geom_histogram(color=edges_color, fill=bars_color)
+p9 <- ggplot(data=wine, aes(x=pH)) + geom_histogram(color=edges_color, fill=bars_color)
+p10 <- ggplot(data=wine, aes(x=sulphates)) + geom_histogram(color=edges_color, fill=bars_color)
+p11 <- ggplot(data=wine, aes(x=alcohol)) + geom_histogram(color=edges_color, fill=bars_color)
+p12 <- ggplot(data=wine, aes(x=quality)) + geom_histogram(color=edges_color, fill=bars_color)
+
+#layout
+p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10 + p11 + p12 + plot_layout(ncol = 3)
+```
+
+## Correlation analysis
+
+We may think using both Pearson and Spearman rank correlation coefficient
+
+Plotting correlation matrix using Pearson index.
+
+```{r}
+plot_correlation(wine, "Pearson\n correlation")
+```
+
+When performing predictions of quality we should care about the correlation among the covariates. If two covariates are highly correlated we may encounter strange results, so we should also consider to keep only low correlated covariates.
+
+Find highly correlated covariates (absolute value of Pearson index greater than or equal to 0.5) here.
+
+```{r}
+melted_wine = melt(cor(wine))
+correlated_covariates = find_competitive_covariates(melted_wine, 0.5, "quality")
+correlated_covariates
+```
+
+Here I am looking for the covariates that seems to be more significant according to the Pearson coefficient.
 
 ```{r}
 correlation_with_quality = tail(melted_wine, n=12)
@@ -45,86 +158,45 @@ correlation_with_quality["value"] = abs(correlation_with_quality["value"])
 correlation_with_quality = correlation_with_quality[order(correlation_with_quality$value, decreasing = TRUE),]
 correlation_with_quality
 ```
-Considerations: the parameters are sorted by importance. We may expect to keep the parameters with the highest correlation index with quality while performing 
-feature selection.
-```{r}
-correlation_with_quality$value
 
+Considerations: the parameters are sorted by importance. We may expect to keep the parameters with the highest correlation index with quality while performing feature selection.
+
+From the results above we can perform a prior feature selection. Given a pair of highly correlated covariates I want to discard the less significant.
+
+Note: here I am not doing a feature selection with the goal of finding the most significant features (this will be done with the right choice of the prior) but I am just discarding in a greedy way features that may lead to problems when training the model.
+
+In this case we may consider to remove density and free.sulfur.dioxide
+
+```{r}
+to_remove <- c("density", "free.sulfur.dioxide")
+filtered_wine <- wine[, ! names(wine) %in% to_remove, drop=F]
+filtered_wine
 ```
+
+```{r}
+plot_correlation(filtered_wine, "Pearson\n correlation")
+```
+
+## Managing outliers
 
 ```{r}
 boxplot(wine, las=3,main="Covariates boxplot",cex.axis=0.75)
 ```
 
+Find outliers in the original dataset.
+
 ```{r}
-info = boxplot(wine$free.sulfur.dioxide, las=2,main="free sulfur dioxide boxplot", cex.axis=0.75, plot=FALSE)
-outliers = info$out
-outliers
+wine_m = remove_outliers(wine)
+print(nrow(wine_m))
 ```
 
+Find outliers in the filtered dataset.
 
-Method used to find the indexes of outliers (rows that contains at least one value that is outlier)
 ```{r}
-upper_bounds = vector()
-lower_bounds = vector()
-for(i in 1: ncol(wine)){
-  q3 = quantile(wine[, i], 0.75)
-  q1 = quantile(wine[, i], 0.25)
-  interquantile_range = q3 - q1
-  upper_bounds = append(upper_bounds, q3 + 1.5 * interquantile_range)
-  lower_bounds = append(lower_bounds, q1 - 1.5 * interquantile_range)
-}
-
-
-outliers_index = vector()
-
-
-for(i in 1: nrow(wine)){
-  is_outlier = FALSE
-  j = 1
-  while(j <= ncol(wine) & !is_outlier){
-    if(wine[i,j] < lower_bounds[j] | wine[i, j] > upper_bounds[j]){
-      outliers_index = append(outliers_index, i)
-      is_outlier = !is_outlier
-    }
-    j = j + 1
-  }
-}
-
-print(length(outliers_index))
-print(nrow(wine))
+boxplot(filtered_wine, las=3,main="Covariates boxplot",cex.axis=0.75)
 ```
 
-
-1.50 min for softmax video
-2.02 I don't understand
-Bayesian Learning Lecture 9 - to see how to write the predictive distribution-
-ascii ~ = 126
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+```{r}
+wine_f_m = remove_outliers(filtered_wine)
+nrow(wine_f_m)
+```
