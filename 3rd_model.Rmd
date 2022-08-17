@@ -90,14 +90,24 @@ burn     <- 5000
 n.iter   <- 10000
 thin     <- 5
 n.chains <- 2
-
+```
 ### run the chain
+```{r}
 model <- jags.model(model_string,data = data, n.chains=n.chains,quiet=FALSE)
 ```
 it took 16 minutes
 ```{r}
 update(model, burn)
 samples <- coda.samples(model, variable.names=c("beta","sigma", "p"), thin=thin, n.iter=n.iter)
+```
+
+```{r}
+save(samples, file = 'chains/categorical_lasso.dat')
+```
+
+
+```{r}
+load(file = 'chains/categorical_lasso.dat')
 ```
 
 ```{r}
@@ -156,12 +166,5 @@ abline(h = 0, col = "blue")
 ```{r}
 plot(samples[,1: n_beta]) 
 ```
-```{r}
-save(samples, file = 'chains/categorical_lasso.dat')
-```
 
-
-```{r}
-load(file = 'chains/categorical_lasso.dat')
-```
 
