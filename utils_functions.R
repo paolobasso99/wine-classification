@@ -1,4 +1,3 @@
-install.packages("ggplot2")
 library(reshape2)
 library("ggplot2")
 
@@ -100,6 +99,22 @@ to_one_hot <- function(df){
   new_df <-new_df[,!names(df) %in% c("quality")]
   return(new_df)
 }
+
+
+from_one_hot <- function(df){
+  last_index <- ncol(df)
+  quality_df <- data.frame("quality"=c())
+  for (i in 1:nrow(df)){
+    for (j in 0:9){
+      if (df[i, last_index - j] == 1){
+        quality_df <- rbind(quality_df, data.frame("quality"=c(10 -j)))
+      }
+    }
+  }
+  new_df <- df[, 1: (ncol(df) - 10)]
+  new_df <-cbind(new_df, quality_df)
+}
+
 
 
 
