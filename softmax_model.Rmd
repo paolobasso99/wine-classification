@@ -1,0 +1,97 @@
+```{r}
+rm(list=ls())
+install.packages("rjags")
+install.packages("ggplot2")
+install.packages("patchwork")
+library("ggplot2")
+library(patchwork)
+library(rjags)
+library(coda)
+```
+
+```{r}
+source("utils_functions.R")
+```
+
+```{r}
+wine = readRDS(file="./data/wine.Rda")
+wine = remove_outliers(wine)
+```
+
+```{r}
+melted_wine = melt(cor(wine))
+correlated_covariates = find_competitive_covariates(melted_wine, 0.4, "quality")
+correlated_covariates
+```
+
+Here I am looking for the covariates that seems to be more significant according to the Pearson coefficient.
+
+```{r}
+correlation_with_quality = tail(melted_wine, n=12)
+correlation_with_quality["value"] = abs(correlation_with_quality["value"])
+correlation_with_quality = correlation_with_quality[order(correlation_with_quality$value, decreasing = TRUE),]
+correlation_with_quality
+```
+	
+```{r}
+drop_row <- function(df, feature){
+  indexes_to_drop <- c()
+  for(i in 1:nrow(df)){
+    if (df[i, 1] == feature | df[i, 2] == feature){
+      indexes_to_drop <- append(indexes_to_drop, i)
+    }
+  }
+  return(df[-indexes_to_drop, ])
+}
+
+new_df <- drop_row(correlated_covariates, "density")
+new_df <- drop_row(new_df, "total.sulfur.dioxide")
+new_df
+```
+
+density, total.sulfur.dioxide, chlorides, residual.sugar
+
+Drop competive covariates
+
+```{r}
+df <- wine[, !names(wine) %in% c("density", "total.sulfur.dioxide", "chlorides", "residual.sugar")]
+df
+```
+
+Drop low correlated covariates.
+free.sulfur.dioxide	sulphates, citric.acid
+```{r}
+df <- df[, !names(df) %in% c("free.sulfur.dioxide",	"sulphates", "citric.acid")]
+df
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
