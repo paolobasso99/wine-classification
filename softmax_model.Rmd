@@ -64,34 +64,89 @@ free.sulfur.dioxide	sulphates, citric.acid
 df <- df[, !names(df) %in% c("free.sulfur.dioxide",	"sulphates", "citric.acid")]
 df
 ```
+HEREEEEE
+
+```{r}
+df <- to_one_hot(df)
+df
+```
+
+Training
+```{r}
+indexes = sample(1:nrow(df), size=0.1 * nrow(df))
+train <- df[indexes,]
+test <- df[-indexes,]
+df <- train
+```
+
+Plotting training quality histogram
+```{r}
+ggplot(data=wine[indexes,], aes(x=quality)) + geom_histogram()
+```
 
 
+```{r}
+Y = df[,!names(df) %in% names(wine), drop=T]
+X = as.matrix(df[,names(df) %in% names(wine), drop=F])
+```
 
+$$ \begin{align*}
+  Y_{ij} \mid p_{ij} \sim \mathcal{Categorical}(p_i)\\
+  p_{ij} \mid \alpha_i, \beta_i = \text{softmax}(\alpha_i + X_i \beta_i)\\
 
+  \alpha_i, \beta_i \sim \mathcal{DE}(0, \sigma^2)\\
+  \sigma^2 \sim \mathcal{IG}(\alpha_{\mathcal{DE}}, \beta_{\mathcal{DE}})
+\end{align*} $$
+where $$\alpha_{\mathcal{DE}}, \beta_{\mathcal{DE}}$$ are the hyperparameters that must be chosen.
 
+```{r}
+model_string <- textConnection("model{
+  # Likelihood
+  for (i in 1:N){
+    Y[i,] ~ dmulti(p[i, ], 1)
+    for (j in 1:M) {
+      exp_z[i,j] <- exp(z[i, j])                  # softmax function
+      p[i, j]    <- exp_z[i, j]/sum(exp_z[i, ])   # softmax function
+      z[i, j]    <- beta[j, ] %*% X[i, ]          # linear model
+    }
+  }
+  # Priors
+  for (j in 1: M){
+    for (k in 1: K){
+      beta[j, k] ~ dnorm(0, 0.01)            # Lasso prior
+    }
+  }
+}")
+```
 
+```{r}
+N <- dim(X)[1]  # number of observations
+K <- dim(X)[2]  # number of covariates
+M <- 10         # number of categories
 
+# hyperparameters 
+alpha_hp = 0.01
+beta_hp = 0.01
+#data <-list(Y=Y, X=X, N=N, M=M, K=K, alpha_hp=alpha_hp, beta_hp=beta_hp)
+data <-list(Y=Y, X=X, N=N, M=M, K=K)
 
+burn     <- 5000
+n.iter   <- 10000
+thin     <- 5
+n.chains <- 2
 
+model <- jags.model(model_string,data = data, n.chains=n.chains,quiet=FALSE)
+```
+it took 16 minutes
+```{r}
+update(model, burn)
+samples <- coda.samples(model, variable.names=c("beta", "p"), thin=thin, n.iter=n.iter)
+```
 
+```{r}
+save(samples, file = 'chains/categorical_gaussian.dat')
+```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+```{r}
+load('chains/categorical_gaussian.dat')
+```

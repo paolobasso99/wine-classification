@@ -96,7 +96,7 @@ to_one_hot <- function(df){
     one_hot_df[i, qlty_value] = 1
   }
   new_df <-cbind(df, one_hot_df)
-  new_df <-new_df[,!names(df) %in% c("quality")]
+  new_df <-new_df[,!names(new_df) %in% c("quality")]
   return(new_df)
 }
 
