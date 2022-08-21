@@ -101,6 +101,7 @@ to_one_hot <- function(df){
 }
 
 
+# find and keep the outliers of data frame df.
 keep_outliers <- function(df){
   upper_bounds = vector()
   lower_bounds = vector()
@@ -126,6 +127,4 @@ keep_outliers <- function(df){
   }
   return(df[+outliers_index,])
 }
-
-
 
