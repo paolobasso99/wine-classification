@@ -101,20 +101,31 @@ to_one_hot <- function(df){
 }
 
 
-from_one_hot <- function(df){
-  last_index <- ncol(df)
-  quality_df <- data.frame("quality"=c())
-  for (i in 1:nrow(df)){
-    for (j in 0:9){
-      if (df[i, last_index - j] == 1){
-        quality_df <- rbind(quality_df, data.frame("quality"=c(10 -j)))
+keep_outliers <- function(df){
+  upper_bounds = vector()
+  lower_bounds = vector()
+  for(i in 1: ncol(df)){
+    q3 = quantile(df[, i], 0.75)
+    q1 = quantile(df[, i], 0.25)
+    interquantile_range = q3 - q1
+    upper_bounds = append(upper_bounds, q3 + 1.5 * interquantile_range)
+    lower_bounds = append(lower_bounds, q1 - 1.5 * interquantile_range)
+  }
+  outliers_index = vector()
+  for(i in 1: nrow(df)){
+    is_outlier = FALSE
+    j = 1
+    # quality is the last column and should not be considered
+    while(j <= ncol(df) - 1 & !is_outlier){
+      if( df[i, j] > upper_bounds[j]){
+        outliers_index = append(outliers_index, i)
+        is_outlier = !is_outlier
       }
+      j = j + 1
     }
   }
-  new_df <- df[, 1: (ncol(df) - 10)]
-  new_df <-cbind(new_df, quality_df)
+  return(df[+outliers_index,])
 }
-
 
 
 

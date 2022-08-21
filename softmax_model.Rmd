@@ -134,10 +134,13 @@ burn     <- 5000
 n.iter   <- 10000
 thin     <- 5
 n.chains <- 2
+```
 
+```{r}
 model <- jags.model(model_string,data = data, n.chains=n.chains,quiet=FALSE)
 ```
-it took 16 minutes
+
+
 ```{r}
 update(model, burn)
 samples <- coda.samples(model, variable.names=c("beta", "p"), thin=thin, n.iter=n.iter)
@@ -150,3 +153,77 @@ save(samples, file = 'chains/categorical_gaussian.dat')
 ```{r}
 load('chains/categorical_gaussian.dat')
 ```
+
+
+```{r}
+n_beta = K * M
+plot(samples[,1: n_beta])
+```
+```{r}
+#Convergence diagnostics
+autocorr.plot(samples[,1: n_beta])
+```
+
+```{r}
+model <- jags.model(model_string,data = data, n.chains=n.chains,quiet=FALSE)
+```
+
+
+```{r}
+update(model, burn)
+samples1 <- coda.samples(model, variable.names=c("beta", "p"), thin=100, n.iter=20000)
+```
+
+```{r}
+save(samples1, file = 'chains/categorical_gaussian1.dat')
+```
+
+train percentage=0.2
+```{r}
+load('chains/categorical_gaussian1.dat')
+```
+```{r}
+plot(samples1[,1: n_beta])
+```
+
+```{r}
+#Convergence diagnostics
+autocorr.plot(samples[,1: n_beta])
+```
+
+train percentage = 0.5
+```{r}
+model2 <- jags.model(model_string,data = data, n.chains=n.chains,quiet=FALSE)
+```
+40min
+
+```{r}
+update(model2, burn)
+samples2 <- coda.samples(model2, variable.names=c("beta", "p"), thin=100, n.iter=20000)
+```
+```{r}
+save(samples2, file = 'chains/categorical_gaussian2.dat')
+```
+
+
+```{r}
+plot(samples2[,1: n_beta])
+```
+
+# 10% of data thinning 100, n_iterations 100.000 multinomial distribution with 
+Gaussian distribution
+```{r}
+model3 <- jags.model(model_string,data = data, n.chains=n.chains,quiet=FALSE)
+```
+
+
+```{r}
+update(model3, burn)
+samples2 <- coda.samples(model3, variable.names=c("beta", "p"), thin=100, n.iter=100000)
+```
+
+
+
+
+
+

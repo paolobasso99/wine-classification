@@ -1,0 +1,223 @@
+```{r}
+rm(list=ls())
+install.packages("rjags")
+install.packages("ggplot2")
+install.packages("patchwork")
+install.packages("bayesplot")
+library(bayesplot)
+library("ggplot2")
+library(patchwork)
+library(rjags)
+library(coda)
+```
+# Intro 
+In this notebook we try to implement a new model for the data.
+Likelihood of the quality is categorical.
+We use as link function a Dirichlet distribution.
+The Dirichlet distribution is the conjugate prior of the categorical distribution,
+for this reason we may think it could bring better results with respect the use
+of the softmax link function.
+Since the Dirichlet distribution accept a vector of non negative parameters we 
+use a Poisson regression to find its parameters, indeed the outcome of the Poisson
+regression will be always non negative.
+Since we have no prior on the parameters we can use a non informative prior such
+as a Gaussian distribution with high variance.
+
+
+Importing utils functions
+```{r}
+source("utils_functions.R")
+```
+
+Importing dataset and removing outliers
+```{r}
+wine = readRDS(file="./data/wine.Rda")
+wine = remove_outliers(wine)
+```
+
+
+Drop competive covariates
+
+```{r}
+df <- wine[, !names(wine) %in% c("density", "total.sulfur.dioxide", "chlorides", "residual.sugar")]
+df
+```
+
+Drop low correlated covariates.
+free.sulfur.dioxide	sulphates, citric.acid
+```{r}
+df <- df[, !names(df) %in% c("free.sulfur.dioxide",	"sulphates", "citric.acid")]
+df
+```
+
+Take a portion of dataset of training.
+```{r}
+indexes = sample(1:nrow(df), size=0.1 * nrow(df))
+train <- df[indexes,]
+test <- df[-indexes,]
+df <- train
+```
+
+Plotting training quality histogram to be sure the distribution of quality is still the same.
+```{r}
+ggplot(data=wine[indexes,], aes(x=quality)) + geom_histogram()
+```
+
+Bring the data to the right format.
+```{r}
+Y = as.vector(df$quality)
+X = as.matrix(df[,!names(df) %in% c("quality"), drop=F])
+```
+
+Writing the model.
+
+```{r}
+model_string <- textConnection("model{
+  # Likelihood
+  for (i in 1:N){
+    Y[i] ~ dcat(pi[i, 1:C])
+    for (c in 1:C) {
+      exp_z[i,c] <- exp(z[i, c])                  # softmax function
+      pi[i, c]    <- exp_z[i, c]/sum(exp_z[i, ])   # softmax function
+      z[i, c]    <- beta[c, ] %*% X[i, ]          # linear model
+    }
+  }
+  # Prior
+  for (c in 1: C){
+    for (k in 1: K){
+      beta[c, k] ~ dnorm(0, 0.01)       # Gaussian prior
+    }
+  }
+}")
+```
+
+
+```{r}
+N <- dim(X)[1]  # number of observations
+K <- dim(X)[2]  # number of covariates
+C <- 10         # number of categories
+
+
+data <-list(Y=Y, X=X, N=N, C=C, K=K)
+
+burn     <- 500
+n.iter   <- 5000
+thin     <- 50
+n.chains <- 2
+```
+
+```{r}
+model <- jags.model(model_string,data = data, n.chains=n.chains,quiet=FALSE)
+```
+
+
+```{r}
+update(model, burn, n.iter=n.iter)
+```
+
+
+```{r}
+samples <- coda.samples(model, variable.names=c("beta"), thin=thin, n.iter=n.iter)
+```
+
+```{r}
+plot(samples)
+```
+```{r}
+autocorr.plot(samples)
+```
+
+
+```{r}
+color_scheme_set("brewer-Spectral")
+mcmc_trace(samples,
+           pars=c("beta[1,1]", "beta[1,2]", "beta[1,3]")) + 
+  xlab("Post-warmup iteration")
+```
+
+```{r}
+color_scheme_set("brightblue")
+mcmc_areas(
+  samples,            
+  pars = c("beta[1,1]", "beta[1,2]", "beta[1,3]"),     # make a plot for the mu parameter
+  prob = 0.90)
+```
+
+```{r}
+mcmc_acf(samples,
+         pars=c("beta[1,1]", "beta[1,2]", "beta[1,3]")
+         )
+```
+
+
+
+
+
+
+```{r}
+poisson_dirichlet_model <- textConnection("model{
+  # Likelihood
+  for (i in 1:N){
+    Y[i] ~ dcat(pi[i, 1:C])
+    pi[i, 1:C] ~ ddirch(alpha[i, 1:C])
+    for (c in 1:C) {
+      alpha[i,c] ~ dpois(lambda[i, c])                  # poisson regression
+      lambda[i, c]    <- exp(z[i, c])   # link function
+      z[i, c]    <- beta[c, ] %*% X[i, ]          # linear model
+    }
+  }
+  # Prior
+  for (c in 1: C){
+    for (k in 1: K){
+      beta[c, k] ~ dnorm(0, 0.01)       # Gaussian prior
+    }
+  }
+}")
+```
+
+
+```{r}
+N <- dim(X)[1]  # number of observations
+K <- dim(X)[2]  # number of covariates
+C <- 10         # number of categories
+
+
+data <-list(Y=Y, X=X, N=N, C=C, K=K)
+
+burn     <- 5
+n.iter   <- 50
+thin     <- 1
+n.chains <- 2
+```
+
+```{r}
+model <- jags.model(poisson_dirichlet_model,data = data, n.chains=n.chains,quiet=FALSE)
+```
+
+
+```{r}
+update(model, burn, n.iter=n.iter)
+```
+
+
+```{r}
+samples <- coda.samples(model, variable.names=c("beta"), thin=thin, n.iter=n.iter)
+```
+
+```{r}
+plot(samples)
+```
+
+```{r}
+autocorr.plot(samples)
+```
+
+
+
+
+
+
+
+
+
+
