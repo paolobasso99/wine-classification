@@ -26,8 +26,7 @@ Plotting the distribution of quality wines.
 ```{r}
 # settings
 alpha_density = .2
-c1 = "#ea526f"
-c2 = "#25ced1"
+
 bars_color = "#ea526f"
 edges_color = "#ea526f"
   
@@ -115,8 +114,11 @@ plot_correlation(filtered_wine, "Pearson\n correlation")
 
 ## Managing outliers
 
+
 ```{r}
-boxplot(wine, las=3,main="Covariates boxplot",cex.axis=0.75)
+box_plots <- get_box_plots_wine(wine)
+box_plots
+ggsave("pictures/box_plots.png", plot = box_plots)
 ```
 
 Find outliers in the original dataset.

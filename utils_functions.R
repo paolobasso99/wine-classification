@@ -128,3 +128,62 @@ keep_outliers <- function(df){
   return(df[+outliers_index,])
 }
 
+get_box_plots_wine <- function(wine){
+  color_outlier = "#ea526f"
+  color_norm = '#25ced1'
+  outlier_size = 2
+  color_edges_bx = '#25ced1'
+  bx_plt_alpha = 0.3
+  
+  p1 <- ggplot(wine, aes(x=fixed.acidity)) + 
+    geom_boxplot(outlier.colour=color_outlier, outlier.shape=16, outlier.size=outlier_size, notch=FALSE, fill=color_norm, color=color_edges_bx, alpha=bx_plt_alpha) +
+    coord_flip()
+  
+  p2 <- ggplot(wine, aes(x=volatile.acidity)) + 
+    geom_boxplot(outlier.colour=color_outlier, outlier.shape=16, outlier.size=outlier_size, notch=FALSE, fill=color_norm, color=color_edges_bx, alpha=bx_plt_alpha) +
+    coord_flip()
+  
+  p3 <- ggplot(wine, aes(x=citric.acid)) + 
+    geom_boxplot(outlier.colour=color_outlier, outlier.shape=16, outlier.size=outlier_size, notch=FALSE, fill=color_norm, color=color_edges_bx, alpha=bx_plt_alpha) +
+    coord_flip()
+  
+  p4 <- ggplot(wine, aes(x=residual.sugar)) + 
+    geom_boxplot(outlier.colour=color_outlier, outlier.shape=16, outlier.size=outlier_size, notch=FALSE, fill=color_norm, color=color_edges_bx, alpha=bx_plt_alpha) +
+    coord_flip()
+  
+  p5 <- ggplot(wine, aes(x=chlorides)) + 
+    geom_boxplot(outlier.colour=color_outlier, outlier.shape=16, outlier.size=outlier_size, notch=FALSE, fill=color_norm, color=color_edges_bx, alpha=bx_plt_alpha) +
+    coord_flip()
+  
+  p6 <- ggplot(wine, aes(x=free.sulfur.dioxide)) + 
+    geom_boxplot(outlier.colour=color_outlier, outlier.shape=16, outlier.size=outlier_size, notch=FALSE, fill=color_norm, color=color_edges_bx, alpha=bx_plt_alpha) +
+    coord_flip()
+  
+  p7 <- ggplot(wine, aes(x=total.sulfur.dioxide)) + 
+    geom_boxplot(outlier.colour=color_outlier, outlier.shape=16, outlier.size=outlier_size, notch=FALSE, fill=color_norm, color=color_edges_bx, alpha=bx_plt_alpha) +
+    coord_flip()
+  
+  p8 <- ggplot(wine, aes(x=density)) + 
+    geom_boxplot(outlier.colour=color_outlier, outlier.shape=16, outlier.size=outlier_size, notch=FALSE, fill=color_norm, color=color_edges_bx, alpha=bx_plt_alpha) +
+    coord_flip()
+  
+  p9 <- ggplot(wine, aes(x=pH)) + 
+    geom_boxplot(outlier.colour=color_outlier, outlier.shape=16, outlier.size=outlier_size, notch=FALSE, fill=color_norm, color=color_edges_bx, alpha=bx_plt_alpha) +
+    coord_flip()
+  
+  p10 <- ggplot(wine, aes(x=sulphates)) + 
+    geom_boxplot(outlier.colour=color_outlier, outlier.shape=16, outlier.size=outlier_size, notch=FALSE, fill=color_norm, color=color_edges_bx, alpha=bx_plt_alpha) +
+    coord_flip()
+  
+  p11 <- ggplot(wine, aes(x=alcohol)) + 
+    geom_boxplot(outlier.colour=color_outlier, outlier.shape=16, outlier.size=outlier_size, notch=FALSE, fill=color_norm, color=color_edges_bx, alpha=bx_plt_alpha) +
+    coord_flip()
+  
+  p12 <- ggplot(wine, aes(x=quality)) + 
+    geom_boxplot(outlier.colour=color_outlier, outlier.shape=16, outlier.size=outlier_size, notch=FALSE, fill=color_norm, color=color_edges_bx, alpha=bx_plt_alpha) +
+    coord_flip()
+  
+  box_plts = p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10 + p11 + p12 + plot_layout(ncol = 3)
+  return(box_plts)
+}
+
