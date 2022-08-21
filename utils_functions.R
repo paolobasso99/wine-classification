@@ -1,6 +1,11 @@
 library(reshape2)
 library("ggplot2")
 
+
+#common_colors
+red_ex = "#ea526f"
+light_blue_ex = "#25ced1"
+
 # plot correlation matrix of a given data frame df. 
 # assign a name name_corr to the plot.
 plot_correlation <- function(df, name_corr){
@@ -185,5 +190,100 @@ get_box_plots_wine <- function(wine){
   
   box_plts = p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10 + p11 + p12 + plot_layout(ncol = 3)
   return(box_plts)
+}
+
+# this function returns a ggplot object plotting the beta parameter contained in
+# the given mc_object. The parameter name follows the convention: beta[x] -> "beta.x."
+# except for beta0 that remains "beta0".
+# WARNING: it is assumed the number of chains is 2
+ggplot_traceplot <- function(mc_object, parameter){
+  chain_1 =data.frame(mc_object[[1]])
+  chain_1 = cbind(chain_1, data.frame("t"=c(1:nrow(chain_1))))
+  chain_2 =data.frame(mc_object[[2]])
+  chain_2 = cbind(chain_2, data.frame("t"=c(1:nrow(chain_2))))
+  chains_plt <-ggplot() + geom_line(data = chain_1, aes_string(x="t", y=parameter), color=light_blue_ex) +
+    geom_line(data = chain_2, aes_string(x="t", y=parameter), color=red_ex)
+  return(chains_plt)
+}
+
+
+#this function returns a list of strings containing the name of beta parameters 
+#following the convention : beta[x] -> "beta.x."
+get_beta_names <- function(start, end){
+  betas <- c()
+  for (i in start: end){
+    betas <- append(betas, paste("beta.", as.character(i), ".", sep=""))
+  }
+  return(betas)
+}
+
+
+#this function returns all the traceplots of the n_betas betas in the given object.
+# In this function it is assumed there is a beta0 (not counted in n_betas).
+# WARNING: it is assumed the number of chains is 2
+ggplot_all_traces <- function(mc_object, n_betas){
+  betas.names = get_beta_names(1, n_betas)
+  traceplots = ggplot_traceplot(mc_object, "beta0")
+  for (i in 1:11){
+    traceplots = traceplots + ggplot_traceplot(mc_object, betas.names[i])
+  }
+  traceplots = traceplots +  plot_layout(ncol = 3)
+  return(traceplots)
+}
+
+# given an mc_object returns the plots of the sampled densities 
+# for the given parameter.
+# The parameter name follows the convention: beta[x] -> "beta.x."
+# except for beta0 that remains "beta0".
+# WARNING: it is assumed the number of chains is 2
+ggplot_density_MC <- function(mc_object, parameter){
+  p <- ggplot() + 
+    geom_density(data = data.frame(mc_object[[1]]), aes_string(x=parameter), color=red_ex, fill=red_ex, alpha=0.5) +
+    geom_density(data = data.frame(mc_object[[2]]), aes_string(x=parameter), color=light_blue_ex, fill=light_blue_ex, alpha=0.5)
+  return(p)
+}
+
+
+#this function returns all the densities of the n_betas betas in the given object.
+# In this function it is assumed there is a beta0 (not counted in n_betas).
+# WARNING: it is assumed the number of chains is 2
+ggplot_all_densities <- function(mc_object, n_betas){
+  betas.names = get_beta_names(1, n_betas)
+  densities = ggplot_density_MC(mc_object, "beta0")
+  for (i in 1:11){
+    densities = densities + ggplot_density_MC(mc_object, betas.names[i])
+  }
+  densities = densities +  plot_layout(ncol = 3)
+  return(densities)
+}
+
+# given an mc_object returns the autocorrelation plots 
+# for the given parameter.
+# The parameter name follows the convention: beta[x] -> "beta.x."
+# except for beta0 that remains "beta0".
+ggplot_autocorr <- function(mc_object, parameter, thinning, lags=c(0:15)){
+  autocorr_obj = autocorr.diag(mc_object[[1]], lags = lags)
+  lags_thinned = c()
+  for (i in 1: length(lags)){
+    lags_thinned <- append(lags_thinned, lags[i] * thinning)
+  }
+  autocorr_obj = cbind(data.frame(autocorr_obj), data.frame("lags"=lags_thinned))
+  q <- ggplot(data = autocorr_obj, mapping = aes_string(x = "lags", y = parameter)) +
+    geom_hline(aes(yintercept = 0)) +
+    geom_segment(mapping = aes(xend = lags, yend = 0), size=1.5, color=red_ex)
+  return(q)
+}
+
+
+#this function returns all the autocorrelation plots of the n_betas betas in the given object.
+# In this function it is assumed there is a beta0 (not counted in n_betas).
+ggplot_all_autocorr <- function(mc_object, n_betas, thinning, lags=c(0:15)){
+  betas.names = get_beta_names(1, n_betas)
+  corrs = ggplot_autocorr(mc_object, "beta0", thinning=thinning, lags=lags)
+  for (i in 1:11){
+    corrs = corrs + ggplot_autocorr(mc_object, betas.names[i], thinning=thinning, lags=lags)
+  }
+  corrs = corrs +  plot_layout(ncol = 3)
+  return(corrs)
 }
 

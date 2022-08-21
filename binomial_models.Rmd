@@ -2,10 +2,6 @@
 
 ```{r}
 rm(list=ls())
-install.packages("rjags")
-install.packages("ggplot2")
-install.packages("patchwork")
-install.packages("bayesplot")
 library(bayesplot)
 library("ggplot2")
 library(patchwork)
@@ -19,8 +15,8 @@ wine = readRDS(file="./data/wine.Rda")
 df <- remove_outliers(wine)
 ```
 
-
 Bring the data to the right format.
+
 ```{r}
 Y = as.vector(df$quality)
 X = as.matrix(df[,!names(df) %in% c("quality"), drop=F])
@@ -41,7 +37,6 @@ string_binomial <- textConnection("model{
   }
 }")
 ```
-
 
 ```{r}
 N <- dim(X)[1]  # number of observations
@@ -79,6 +74,7 @@ output <- coda.samples(model = binomial_model,
                        n.iter = nit,
                        thin = thin)
 ```
+
 ```{r}
 save(output, file="chains/binomial_model.dat")
 ```
@@ -87,47 +83,25 @@ save(output, file="chains/binomial_model.dat")
 load("chains/binomial_model.dat")
 ```
 
-
 ```{r}
-plot(output)
-print(names(df))
+traceplots <- ggplot_all_traces(output, 11)
+traceplots
+#ggsave("pictures/trace_binomial_gaussian.png", traceplots)
 ```
 
 ```{r}
-autocorr.plot(output[1])
+densities <- ggplot_all_densities(output, 11)
+densities
+#ggsave("pictures/density_binomial_gaussian.png", densities)
 ```
 
 ```{r}
-
-get_beta_names <- function(start, end){
-  betas <- c()
-  for (i in start: end){
-    betas <- append(betas, paste("beta[", as.character(i), "]", sep=""))
-  }
-  return(betas)
-}
+p <- ggplot_all_autocorr(output, 11, thinning = 100)
+p 
+#ggsave("pictures/autocor_binomial_gaussian.png", p)
 ```
 
-
-```{r}
-color_scheme_set("brightblue")
-mcmc_areas(
-  output,            
-  pars = "beta[3]",     # make a plot for the mu parameter
-  prob = 0.95)
-```
-
-
-```{r}
-color_scheme_set("purple")
-mcmc_trace_highlight(output, pars = get_beta_names(3,3), highlight = 2)
-```
-
-
-```{r}
-summary(output)
-```
-2, 4, 6, 11
+2, 4, 6, 11 inside the CI interval 95%
 
 ```{r}
 names(df)[2]
@@ -135,6 +109,7 @@ names(df)[4]
 names(df)[6]
 names(df)[11]
 ```
+
 ```{r}
 beta_0 <- as.matrix(output[,12])
 betas <- as.matrix(output[, 1:11])
@@ -151,24 +126,13 @@ for (i in 1: n_iter){
 }
 
 plt <- ggplot(data=data.frame(y_pred), aes(y_pred)) +
-  geom_histogram(bins=100, alpha=0.6) + 
-  geom_vline(mapping=aes(xintercept=Y[id]), col="red", lwd=1.5) + 
-  theme_minimal() + theme(legend.position = "none") + 
+  geom_histogram(bins=150, alpha=1, color=light_blue_ex, fill=light_blue_ex) + 
+  geom_vline(mapping=aes(xintercept=Y[id]), col=red_ex, lwd=0.9) + 
   ylab("predicted probability") + xlab("") +
-  xlim(0, 10) + geom_vline(mapping=aes(xintercept=1), col=3, lwd=0.5) +
-  geom_vline(mapping=aes(xintercept=2), col=3, lwd=0.5) +
-  geom_vline(mapping=aes(xintercept=3), col=3, lwd=0.5) +
-  geom_vline(mapping=aes(xintercept=4), col=3, lwd=0.5) +
-  geom_vline(mapping=aes(xintercept=5), col=3, lwd=0.5) +
-  geom_vline(mapping=aes(xintercept=6), col=3, lwd=0.5) +
-  geom_vline(mapping=aes(xintercept=7), col=3, lwd=0.5) +
-  geom_vline(mapping=aes(xintercept=8), col=3, lwd=0.5) +
-  geom_vline(mapping=aes(xintercept=9), col=3, lwd=0.5) +
-  geom_vline(mapping=aes(xintercept=10), col=3, lwd=0.5)
+  scale_x_continuous(breaks=c(0:10), limits=c(0,10))
 
 plt
 ```
-
 
 ```{r}
 # We consider only 100 subjects
@@ -187,10 +151,5 @@ for(i in 1:subN){
 missclassified
 ratio = missclassified / subN
 ratio
-errBL
+error/ subN
 ```
-
-
-
-
-
