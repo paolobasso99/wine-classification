@@ -18,6 +18,9 @@ library("ggplot2")
 ```{r}
 hist(wine$quality, freq=TRUE, border="#55D8C1", col="#FCF69C", plot=TRUE)
 ```
+```{r}
+ggplot(aes(x=factor(quality), y=alcohol), data=Wine.Dataset)+ geom_boxplot(fill='grey', color='blue', outlier.color = 'red')+ scale_y_continuous()+ scale_x_discrete()+ ggtitle('Wine Quality vs Alcohol Concentration')+ xlab('Wine Quality')
+```
 
 We may think using both Pearson and Spearman rank correlation coefficient:
 \begin{itemize}

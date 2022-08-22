@@ -5,18 +5,51 @@ library("rjags")
 ```
 
 ```{r}
-wine=readRDS(file="./data/wine.Rda")
+wine <- readRDS(file="./data/wine.Rda")
 summary(wine)
-N=nrow(wine)
+N <- nrow(wine)
 ```
 # Something
 ```{r}
-hist(wine$quality)
-```
+cat(
+  "
+  model
+  {
+    # Likelihood
+    for (i in 1:N) { # Observaton loops
+      y[i,] ~ dmulti(p[i,], S[i])
+      for(j in 1:M) { # Category loop
+        exp_z[i,j] <- exp(z[i,j])
+        p[i,j] <- exp_z[i,j]/sum(exp_z[i,])
+        z[i,j] <- beta[j,]%*%x[i,]
+      }
+    }
+    # Prior
+    for(j in 1:M) {
+      for(k in 1:K) {
+        beta[j,k] ~ dnorm(0, 0.1^-2)
+      }
+    }
+  }
+  "
+, file = "models/multinomial_softmax.bug")
 
+# Set up the data
+treshhold <- rep(NA, 9)
+treshhold[1] <- 1.5
+treshhold[10] <- 9.5
+model_data <- list(
+  N = nrow(wine),
+  y = wine$quality,
+  treshold = treshhold
+)
 
-```{r}
-plot(wine$pH, wine$quality)
+# Choose the parameters to watch
+model_parameters <- c("theta", "mu")
+
+# Compile the model
+model <- jags.model(file = "models/ordinal_logistic.bug",
+                    data = model_data, n.adapt = 100)
 ```
 ```{r}
 cat(
