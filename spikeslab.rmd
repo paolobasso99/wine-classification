@@ -48,7 +48,7 @@ cat(
     }
   }
   "
-, file = "models/mymodel.bug")
+, file = "models/spikeslab.bug")
 
 # Data to pass to JAGS
 data_JAGS <- list(N = N, p = p, Y = Y, X = as.matrix(X), var_beta = rep(1, p))
@@ -60,7 +60,7 @@ inits = function() {
 }
 
 # Compile model (+ adaptation)
-model <- jags.model("models/mymodel.bug", data = data_JAGS,
+model <- jags.model("models/spikeslab.bug", data = data_JAGS,
                     n.adapt = 500, inits = inits, n.chains = 1) 
 ```
 
@@ -86,11 +86,11 @@ output <- coda.samples(model = model,
                        thin = thin)
 
 # Save the chain
-save(output, file = 'chains/mychain.dat')
+save(output, file = 'chains/spikeslab.dat')
 ```
 ```{r}
 # Load chains
-load('chains/mychain.dat')
+load('chains/spikeslab.dat')
 
 # Look at the structure of the output is an mcmc object of the library coda
 str(output)
