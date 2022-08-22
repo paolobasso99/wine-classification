@@ -1,0 +1,170 @@
+# Lasso prior for softmax classifier
+
+## Set environment and import data
+
+```{r}
+rm(list=ls())
+install.packages("rjags")
+install.packages("ggplot2")
+install.packages("patchwork")
+library("ggplot2")
+library(patchwork)
+library(rjags)
+library(coda)
+```
+
+Importing useful functions
+
+```{r}
+source("utils_functions.R")
+```
+
+```{r}
+wine = readRDS(file="./data/wine.Rda")
+wine = remove_outliers(wine)
+df = to_one_hot(wine)
+df
+```
+Generate training set
+```{r}
+indexes = sample(1:nrow(df), size=0.1 * nrow(df))
+train <- df[indexes,]
+test <- df[-indexes,]
+df <- train
+```
+
+Plotting training quality histogram
+```{r}
+ggplot(data=wine[indexes,], aes(x=quality)) + geom_histogram()
+```
+
+
+```{r}
+Y = df[,!names(df) %in% names(wine), drop=T]
+X = as.matrix(df[,names(df) %in% names(wine), drop=F])
+```
+
+$$ \begin{align*}
+  Y_{ij} \mid p_{ij} \sim \mathcal{Categorical}(p_i)\\
+  p_{ij} \mid \alpha_i, \beta_i = \text{softmax}(\alpha_i + X_i \beta_i)\\
+
+  \alpha_i, \beta_i \sim \mathcal{DE}(0, \sigma^2)\\
+  \sigma^2 \sim \mathcal{IG}(\alpha_{\mathcal{DE}}, \beta_{\mathcal{DE}})
+\end{align*} $$
+where $$\alpha_{\mathcal{DE}}, \beta_{\mathcal{DE}}$$ are the hyperparameters that must be chosen.
+
+```{r}
+model_string <- textConnection("model{
+  # Likelihood
+  for (i in 1:N){
+    Y[i,] ~ dmulti(p[i, ], 1)                          # sample from categorical
+    for (j in 1:M) {
+      exp_z[i,j] <- exp(z[i, j])                  # softmax function
+      p[i, j]    <- exp_z[i, j]/sum(exp_z[i, ])   # softmax function
+      z[i, j]    <- beta[j, ] %*% X[i, ]          # linear model
+    }
+  }
+  # Priors
+  for (j in 1: M){
+    for (k in 1: K){
+      beta[j, k] ~ ddexp(0, 0.01)            # Lasso prior
+    }
+  }
+  #inv.var ~ dgamma(alpha_hp, beta_hp)
+  #sigma = inv.var
+}")
+```
+
+```{r}
+N <- dim(X)[1]  # number of observations
+K <- dim(X)[2]  # number of covariates
+M <- 10         # number of categories
+
+# hyperparameters 
+alpha_hp = 0.01
+beta_hp = 0.01
+#data <-list(Y=Y, X=X, N=N, M=M, K=K, alpha_hp=alpha_hp, beta_hp=beta_hp)
+data <-list(Y=Y, X=X, N=N, M=M, K=K)
+
+burn     <- 5000
+n.iter   <- 10000
+thin     <- 5
+n.chains <- 2
+```
+### run the chain
+```{r}
+model <- jags.model(model_string,data = data, n.chains=n.chains,quiet=FALSE)
+```
+it took 16 minutes
+```{r}
+update(model, burn)
+samples <- coda.samples(model, variable.names=c("beta","sigma", "p"), thin=thin, n.iter=n.iter)
+```
+
+```{r}
+save(samples, file = 'chains/categorical_lasso.dat')
+```
+
+
+```{r}
+load(file = 'chains/categorical_lasso.dat')
+```
+
+```{r}
+# Extract other values of the chain
+n_beta <- K * M
+beta <- as.matrix(samples[,1: n_beta])
+```
+
+We can use regularized regression to perform variable selection! Let us see how to do: First of all, we compute the $95\%$ credible intervals for the $\beta$ coefficients
+
+```{r}
+# compute the 95% posterior credible interval for beta
+CI_beta = apply(beta, 2, quantile, c(0.025, 0.975)) 
+CI_beta
+```
+
+Then, if the credibility interval does not contain $0$, we keep the variable.
+
+```{r}
+# For loop to check the included variables
+idx_cov_selected = vector()
+idx_cov_filtered = vector()
+names_selected = vector()
+for (i in 1: ncol(CI_beta)){
+  if (CI_beta[1, i] <= 0 & 0 <= CI_beta[2, i]){
+    idx_cov_filtered <- append(idx_cov_filtered, i)
+  }
+  else{
+    idx_cov_selected <- append(idx_cov_selected, i)
+    names_selected <- append(names_selected, colnames(CI_beta)[i])
+  }
+}
+names_selected
+```
+
+Finally, as a point estimate for our $\beta$ vector, we compute the posterior mean
+
+```{r}
+# Compute posterior mean
+mean_beta_post <- apply(beta, 2, "mean")
+mean_beta_post
+```
+
+In the following chunk, we plot the credible intervals for better visualization
+
+```{r}
+# PLOT THE CI
+gplots::plotCI(x = 1:n_beta, y = mean_beta_post,
+               liw = (-CI_beta[1,] + mean_beta_post),
+               uiw = (CI_beta[2,] - mean_beta_post),
+               type = "n", lwd = 1.5,
+               main="Decision intervals for HS", ylab = "", xlab = "")
+points(1:n_beta, mean_beta_post, pch=16)
+abline(h = 0, col = "blue")
+```
+```{r}
+plot(samples[,1: n_beta]) 
+```
+
+

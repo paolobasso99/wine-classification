@@ -1,133 +1,172 @@
 # Set environment and import data
+
 ```{r}
 rm(list=ls())
-install.packages("rjags")
-install.packages("ggplot2")
-```
-
-```{r}
-wine <- readRDS(file="./data/wine.Rda")
-summary(wine)
-```
-# Something
-
-```{r}
-library("ggplot2")
-
-```
-```{r}
-hist(wine$quality, freq=TRUE, border="#55D8C1", col="#FCF69C", plot=TRUE)
-```
-```{r}
-ggplot(aes(x=factor(quality), y=alcohol), data=Wine.Dataset)+ geom_boxplot(fill='grey', color='blue', outlier.color = 'red')+ scale_y_continuous()+ scale_x_discrete()+ ggtitle('Wine Quality vs Alcohol Concentration')+ xlab('Wine Quality')
-```
-
-We may think using both Pearson and Spearman rank correlation coefficient:
-\begin{itemize}
-  \item Pearson captures linear relationships
-  \item Spearman captures monotonic relationships
-\end{itemize}
-```{r}
 library(reshape2)
-melted_wine <- melt(cor(wine))
-head(melted_wine)
-ggplot(data = melted_wine, aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile(color = "white") + 
-  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
-   midpoint = 0, limit = c(-1,1), space = "Lab", 
-   name="Pearson\nCorrelation") + theme_minimal()+ 
- theme(axis.text.x = element_text(angle = 45, vjust = 1, 
-    size = 12, hjust = 1))+
- coord_fixed()
+library("ggplot2")
+library(patchwork)
+library(gridExtra)
+```
+
+reading data
+
+```{r}
+wine=readRDS(file="./data/wine.Rda")
+```
+
+# Functions
+```{r}
+source("utils_functions.R")
+```
+
+# Data analysis
+
+Plotting the distribution of quality wines.
+
+```{r}
+# settings
+alpha_density = .2
+
+bars_color = "#ea526f"
+edges_color = "#ea526f"
+  
+
+# plots
+p1 <- ggplot(data=wine, aes(x=fixed.acidity, y=..density..)) + geom_histogram(color=edges_color, fill=bars_color)
+p2 <- ggplot(data=wine, aes(x=volatile.acidity, y=..density..)) + geom_histogram(color=edges_color, fill=bars_color)
+p3 <- ggplot(data=wine, aes(x=citric.acid, y=..density..)) + geom_histogram(color=edges_color, fill=bars_color)
+p4 <- ggplot(data=wine, aes(x=residual.sugar, y=..density..)) + geom_histogram(color=edges_color, fill=bars_color)
+p5 <- ggplot(data=wine, aes(x=chlorides, y=..density..)) + geom_histogram(color=edges_color, fill=bars_color)
+p6 <- ggplot(data=wine, aes(x=free.sulfur.dioxide, y=..density..)) + geom_histogram(color=edges_color, fill=bars_color)
+p7 <- ggplot(data=wine, aes(x=total.sulfur.dioxide, y=..density..)) + geom_histogram(color=edges_color, fill=bars_color)
+p8 <- ggplot(data=wine, aes(x=density, y=..density..)) + geom_histogram(color=edges_color, fill=bars_color)
+p9 <- ggplot(data=wine, aes(x=pH, y=..density..)) + geom_histogram(color=edges_color, fill=bars_color)
+p10 <- ggplot(data=wine, aes(x=sulphates, y=..density..)) + geom_histogram(color=edges_color, fill=bars_color)
+p11 <- ggplot(data=wine, aes(x=alcohol, y=..density..)) + geom_histogram(color=edges_color, fill=bars_color)
+p12 <- ggplot(data=wine, aes(x=quality, y=..density..)) + geom_histogram(bins=10, color=edges_color, fill=bars_color, center=0, binwidth = 1) +
+  scale_x_continuous(breaks=c(0:10))
+
+#layout
+hist_plts = p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10 + p11 + p12 + plot_layout(ncol = 3)
+hist_plts
+ggsave("pictures/histograms.png", plot = hist_plts)
+```
+
+## Correlation analysis
+
+We may think using both Pearson and Spearman rank correlation coefficient
+
+Plotting correlation matrix using Pearson index.
+
+```{r}
+cor_plt <- plot_correlation(wine, "Pearson\n correlation")
+cor_plt
+# saving the correlation plot as a png picture
+ggsave("pictures/pearson.png", plot = cor_plt)
 
 ```
+
+When performing predictions of quality we should care about the correlation among the covariates. If two covariates are highly correlated we may encounter strange results, so we should also consider to keep only low correlated covariates.
+
+Find highly correlated covariates (absolute value of Pearson index greater than or equal to 0.5) here.
+
+```{r}
+melted_wine = melt(cor(wine))
+correlated_covariates = find_competitive_covariates(melted_wine, 0.5, "quality")
+correlated_covariates
+# saving the dataframe in a png file for the report
+png("pictures/competitive_covariates.png", height = 50*nrow(correlated_covariates), width = 200*ncol(correlated_covariates))
+grid.table(correlated_covariates)
+dev.off()
+```
+
+Here I am looking for the covariates that seems to be more significant according to the Pearson coefficient.
 
 ```{r}
 correlation_with_quality = tail(melted_wine, n=12)
 correlation_with_quality["value"] = abs(correlation_with_quality["value"])
 correlation_with_quality = correlation_with_quality[order(correlation_with_quality$value, decreasing = TRUE),]
 correlation_with_quality
+
+# saving the dataframe in a png file for the report
+png("pictures/correlation_score_df.png", height = 50*nrow(correlation_with_quality), width = 200*ncol(correlation_with_quality))
+grid.table(correlation_with_quality)
+dev.off()
 ```
-Considerations: the parameters are sorted by importance. We may expect to keep the parameters with the highest correlation index with quality while performing 
-feature selection.
+
+Considerations: the parameters are sorted by importance. We may expect to keep the parameters with the highest correlation index with quality while performing feature selection.
+
+From the results above we can perform a prior feature selection. Given a pair of highly correlated covariates I want to discard the less significant.
+
+Note: here I am not doing a feature selection with the goal of finding the most significant features (this will be done with the right choice of the prior) but I am just discarding in a greedy way features that may lead to problems when training the model.
+
+In this case we may consider to remove density and free.sulfur.dioxide
+
 ```{r}
-correlation_with_quality$value
-
+to_remove <- c("density", "free.sulfur.dioxide")
+filtered_wine <- wine[, ! names(wine) %in% to_remove, drop=F]
+filtered_wine
 ```
 
 ```{r}
-boxplot(wine, las=3,main="Covariates boxplot",cex.axis=0.75)
+plot_correlation(filtered_wine, "Pearson\n correlation")
+```
+
+## Managing outliers
+
+
+```{r}
+box_plots <- get_box_plots_wine(wine)
+box_plots
+ggsave("pictures/box_plots.png", plot = box_plots)
+```
+
+Find outliers in the original dataset.
+
+```{r}
+wine_m = remove_outliers(wine)
+print(nrow(wine_m))
+```
+
+Find outliers in the filtered dataset.
+
+```{r}
+boxplot(filtered_wine, las=3,main="Covariates boxplot",cex.axis=0.75)
 ```
 
 ```{r}
-info = boxplot(wine$free.sulfur.dioxide, las=2,main="free sulfur dioxide boxplot", cex.axis=0.75, plot=FALSE)
-outliers = info$out
-outliers
+wine_f_m = remove_outliers(filtered_wine)
+nrow(wine_f_m)
 ```
 
 
-Method used to find the indexes of outliers (rows that contains at least one value that is outlier)
+From the quality of the histogram we can notice how the quality has high mass on the
+values 5-6 and has just few values near 0 and 10 (the extremes).
+We want to understand if the outliers are somehow connected to very poor/good wines.
+If we have just few samples for bad/good wines, one may think the features that 
+characterize them might be the outliers of the dataset.
+For this purpose we plot the estimated densities of the dataset without outliers
+and the quality density of the outliers.
 ```{r}
-upper_bounds = vector()
-lower_bounds = vector()
-for(i in 1: ncol(wine)){
-  q3 = quantile(wine[, i], 0.75)
-  q1 = quantile(wine[, i], 0.25)
-  interquantile_range = q3 - q1
-  upper_bounds = append(upper_bounds, q3 + 1.5 * interquantile_range)
-  lower_bounds = append(lower_bounds, q1 - 1.5 * interquantile_range)
-}
-
-
-outliers_index = vector()
-
-
-for(i in 1: nrow(wine)){
-  is_outlier = FALSE
-  j = 1
-  while(j <= ncol(wine) & !is_outlier){
-    if(wine[i,j] < lower_bounds[j] | wine[i, j] > upper_bounds[j]){
-      outliers_index = append(outliers_index, i)
-      is_outlier = !is_outlier
-    }
-    j = j + 1
-  }
-}
-
-print(length(outliers_index))
-print(nrow(wine))
+outliers = keep_outliers(wine)
+cleaned = remove_outliers(wine)
 ```
 
+```{r}
+c1 = "#ea526f"
+c2 = "#25ced1"
 
-1.50 min for softmax video
-2.02 I don't understand
-Bayesian Learning Lecture 9 - to see how to write the predictive distribution-
-ascii ~ = 126
+plt_outliers <- ggplot() + 
+  geom_histogram(data=outliers, aes(x=quality, y=..density..), bins=10, color=c1, fill=c1, alpha=0.5, center=0,binwidth = 1) +
+  geom_histogram(data=cleaned, aes(x=quality, y=..density..), bins=10, color=c2, fill=c2, alpha=0.5, center=0,binwidth = 1) +
+  scale_x_continuous(breaks=c(0:10))
 
+plt_outliers
 
+ggsave("pictures/outliers_vs_non.png", plot = plt_outliers)
+```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+From the histograms we can notice how the quality distributions for both sets 
+are comparable, thus we can not say anything about the outliers.
 
 
