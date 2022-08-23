@@ -70,7 +70,7 @@ remove_outliers <- function(df){
     j = 1
     # quality is the last column and should not be considered
     while(j <= ncol(df) - 1 & !is_outlier){
-      if( df[i, j] > upper_bounds[j]){
+      if( df[i, j] > upper_bounds[j] | df[i, j] < lower_bounds[j]){
         outliers_index = append(outliers_index, i)
         is_outlier = !is_outlier
       }
@@ -79,6 +79,31 @@ remove_outliers <- function(df){
   }
   return(df[-outliers_index,])
 }
+
+#detect outliers for a specific column name of a given dataframe.
+# remove is a Boolean: if TRUE, the function returns a df without the outliers
+#                      if FALSE, the function returns a df with only the outliers
+#up is a Boolean (by default is set to TRUE): if TRUE consider outliers over the upper_bounds
+#down is a Boolean (by default is set to TRUE): if TRUE consider outliers over the lower_bounds
+handle_outlier <- function(df, parameter, remove, up=TRUE, down=TRUE){
+  index = match(parameter, colnames(df))
+  q3 = quantile(df[, index], 0.75)
+  q1 = quantile(df[, index], 0.25)
+  interquantile_range = q3 - q1
+  upper_bound = q3 + 1.5 * interquantile_range
+  lower_bound = q1 - 1.5 * interquantile_range
+  outliers_index = vector()
+  for (i in 1:nrow(df)){
+    if(df[i, index] > upper_bound & up | df[i, index] < lower_bound & down ){
+      outliers_index = append(outliers_index, i)
+    }
+  }
+  if(remove){
+    return(df[-outliers_index,])
+  }
+  return(df[+outliers_index,])
+}
+
 
 # given a data frame df, this function returns a new data frame replacing its 
 # column "quality" with the columns (y1, y2, .., y10) that represent the one
@@ -244,13 +269,31 @@ ggplot_density_MC <- function(mc_object, parameter){
 }
 
 
+ggplot_compare_densities <- function(mc_1, mc_2, parameter){
+  p <- ggplot() + 
+    geom_density(data = data.frame(mc_1[[1]]), aes_string(x=parameter), color=red_ex, fill=red_ex, alpha=0.5) +
+    geom_density(data = data.frame(mc_2[[1]]), aes_string(x=parameter), color=light_blue_ex, fill=light_blue_ex, alpha=0.5)
+  return(p)
+}
+
+
+ggplot_compare_all_d <- function(mc_1, mc_2, n_betas){
+  betas.names = get_beta_names(1, n_betas)
+  densities = ggplot_compare_densities(mc_1, mc_2, "beta0")
+  for (i in 1:n_betas){
+    densities = densities + ggplot_compare_densities(mc_1, mc_2, betas.names[i])
+  }
+  densities = densities +  plot_layout(ncol = 3)
+  return(densities)
+}
+
 #this function returns all the densities of the n_betas betas in the given object.
 # In this function it is assumed there is a beta0 (not counted in n_betas).
 # WARNING: it is assumed the number of chains is 2
 ggplot_all_densities <- function(mc_object, n_betas){
   betas.names = get_beta_names(1, n_betas)
   densities = ggplot_density_MC(mc_object, "beta0")
-  for (i in 1:11){
+  for (i in 1:n_betas){
     densities = densities + ggplot_density_MC(mc_object, betas.names[i])
   }
   densities = densities +  plot_layout(ncol = 3)

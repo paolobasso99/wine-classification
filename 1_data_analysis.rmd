@@ -153,8 +153,8 @@ cleaned = remove_outliers(wine)
 ```
 
 ```{r}
-c1 = "#ea526f"
-c2 = "#25ced1"
+c1 = red_ex
+c2 = light_blue_ex
 
 plt_outliers <- ggplot() + 
   geom_histogram(data=outliers, aes(x=quality, y=..density..), bins=10, color=c1, fill=c1, alpha=0.5, center=0,binwidth = 1) +
@@ -168,5 +168,39 @@ ggsave("pictures/outliers_vs_non.png", plot = plt_outliers)
 
 From the histograms we can notice how the quality distributions for both sets 
 are comparable, thus we can not say anything about the outliers.
+
+
+```{r}
+# set these values to decide which outliers to keep
+up=FALSE
+down=TRUE
+
+
+name= colnames(wine)[1] 
+no_out = handle_outlier(wine, name, remove=TRUE, up=up, down=down)
+yes_out = handle_outlier(wine, name, remove=FALSE, up=up, down=down)
+
+plt_outliers <- ggplot() + 
+  geom_histogram(data=yes_out, aes(x=quality, y=..density..), bins=10, color=red_ex, fill=red_ex, alpha=0.5, center=0,binwidth = 1) +
+  geom_histogram(data=no_out, aes(x=quality, y=..density..), bins=10, color=light_blue_ex, fill=light_blue_ex, alpha=0.5, center=0,binwidth = 1) +
+  scale_x_continuous(breaks=c(0:10), name=paste("quality", name))
+
+
+for (i in 2:(ncol(wine)) - 1){
+  name= colnames(wine)[i] 
+  no_out = handle_outlier(wine, name, remove=TRUE, up=up, down=down)
+  yes_out = handle_outlier(wine, name, remove=FALSE, up=up, down=down)
+  
+  plt_outliers <- plt_outliers + ggplot() + 
+    geom_histogram(data=yes_out, aes(x=quality, y=..density..), bins=10, color=red_ex, fill=red_ex, alpha=0.5, center=0,binwidth = 1) +
+    geom_histogram(data=no_out, aes(x=quality, y=..density..), bins=10, color=light_blue_ex, fill=light_blue_ex, alpha=0.5, center=0,binwidth = 1) +
+    scale_x_continuous(breaks=c(0:10), name=paste("quality", name))
+}
+plt = plt_outliers + plot_layout(ncol = 3)
+plt
+#ggsave("pictures/outliers_distributionsDOWN.png", plot=plt)
+```
+
+
 
 

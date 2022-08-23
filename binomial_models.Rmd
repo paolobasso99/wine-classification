@@ -13,7 +13,12 @@ source("utils_functions.R")
 ```{r}
 wine = readRDS(file="./data/wine.Rda")
 df <- remove_outliers(wine)
+colnames(wine)
 ```
+total_sulfur.dioxide, density, chlorides, residual.sugar, free.sulfur.dioxide, sulphates, citric.acid
+
+fixed.acidity, volatile.acidity, pH, alcohol
+1, 2, 9, 11
 
 Bring the data to the right format.
 
@@ -76,7 +81,7 @@ output <- coda.samples(model = binomial_model,
 ```
 
 ```{r}
-save(output, file="chains/binomial_model.dat")
+#save(output, file="chains/binomial_model.dat")
 ```
 
 ```{r}
@@ -153,3 +158,19 @@ ratio = missclassified / subN
 ratio
 error/ subN
 ```
+# Comparison between Gaussian prior and Lasso prior
+
+```{r}
+load("chains/binomial_model.dat")
+gaussian_m = output
+
+load("chains/binomial_lasso.dat")
+lasso_m = output
+
+p <- ggplot_compare_all_d(lasso_m, gaussian_m, 11)
+ggsave("pictures/binomial_comparison.png", plot=p)
+```
+
+1, 2, 9, 11
+
+
