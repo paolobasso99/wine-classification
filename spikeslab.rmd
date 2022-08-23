@@ -1,0 +1,156 @@
+```{r}
+rm(list=ls())
+library("rjags")
+wine <- readRDS(file="./data/wine.Rda")
+summary(wine)
+```
+```{r}
+# Define outcome and design matrix
+X <- as.matrix(wine[,1:11])
+Y <- as.vector(wine$quality)
+
+# Get dimensions
+N <- dim(X)[1]
+p <- dim(X)[2]
+```
+
+```{r}
+cat(
+  "
+  model {
+    # Likelihood 
+    for (i in 1:N) {
+    	mu[i] <- beta0 + inprod(X[i,], beta)
+    	Y[i] ~ dnorm(mu[i], tau)
+    } 
+  
+    # Tracing the visited model
+    for (j in 1:p) {
+    	TempIndicator[j] <- g[j]*pow(2, j) 
+    }
+    mdl <- 1 + sum(TempIndicator[]) # model index in binary coding 
+  
+    # Priors
+    beta0 ~ dnorm(0, 0.001)
+    sigma ~ dunif(0, 100) # standard deviation
+    tau <- 1 / (sigma * sigma)
+  
+    for(j in 1:p) {
+    	tprior[j] <- 1 / var_beta[j]
+    	bprior[j] <- 0
+    }
+  
+    for(j in 1:p) {
+    	beta_temp[j] ~ dnorm(bprior[j], tprior[j])
+    	g[j] ~ dbern(theta[j])
+    	theta[j] ~ dunif(0,1)
+    	beta[j] <- g[j] * beta_temp[j]	
+    }
+  }
+  "
+, file = "models/spikeslab.bug")
+
+# Data to pass to JAGS
+data_JAGS <- list(N = N, p = p, Y = Y, X = as.matrix(X), var_beta = rep(1, p))
+
+# A list of initial value for the MCMC algorithm 
+inits = function() {
+  list(beta0 = 0.0, beta_temp = rep(0,p), g = rep(0,p), theta = rep(0.5, p),
+       .RNG.seed = 321, .RNG.name = 'base::Wichmann-Hill') 
+}
+
+# Compile model (+ adaptation)
+model <- jags.model("models/spikeslab.bug", data = data_JAGS,
+                    n.adapt = 500, inits = inits, n.chains = 1) 
+```
+
+```{r}
+# if we want to perform a larger burn in with not adaptation.
+cat("  Updating...\n")
+update(model,n.iter=500)
+
+# Posterior parameters JAGS has to track
+param <- c("beta0", "beta", "g", "mdl", "sigma")
+
+# Number of iterations & thinning
+nit <- 10000
+thin <-10
+```
+
+```{r}
+# Sampling (this may take a while)
+cat("  Sampling...\n")
+output <- coda.samples(model = model,
+                       variable.names = param,
+                       n.iter = nit,
+                       thin = thin)
+
+# Save the chain
+save(output, file = 'chains/spikeslab.dat')
+```
+```{r}
+# Load chains
+load('chains/spikeslab.dat')
+
+# Look at the structure of the output is an mcmc object of the library coda
+str(output)
+```
+
+```{r}
+# Plot command for coda::mcmc objects (4 at a time for visual purposes)
+K <- 3
+plot(output[,(4*K+1):(4*(K+1))])
+```
+
+```{r}
+summary(output)
+```
+```{r}
+output <- as.matrix(output)
+```
+
+```{r}
+# We save the posterior chain of the inclusion variable in post_g
+post_g <- as.matrix(output[,13:23])
+apply(post_g, 2, "mean")
+post_mean_g <- apply(post_g, 2, "mean") 
+```
+```{r}
+# Plot
+df <- data.frame(value = post_mean_g, var = colnames(X))
+p1 <- ggplot(data = df, aes(y = value, x = var, fill = var)) + 
+  geom_bar(stat="identity") + 
+  geom_hline(mapping = aes(yintercept = .5), col = 2, lwd = 1.1) +
+  coord_flip() + theme_minimal() + theme(legend.position="none") + 
+  ylab("Posterior Inclusion Probabilities") + xlab("")
+p1
+```
+```{r}
+# Select best model according to MPM
+mp_SpSl <- as.vector(which(post_mean_g > 0.5))
+post_mean_g[mp_SpSl]
+# Plot the mdl chain
+plot(output[,"mdl"], pch = 20, xlab = "Iteration", ylab = "Model")
+```
+```{r}
+# Number of models visited
+length(unique( output[,"mdl"]))
+```
+```{r}
+# Post frequency of visited models
+visited_models <- sort(table(output[,"mdl"]), decreasing = TRUE)
+barplot(visited_models, xlab = "N° Model", ylab = "Posterior Frequency")
+```
+```{r}
+# Getting the unique profiles and sort the results
+unique_model <- unique(post_g, MARGIN = 1)
+freq <- apply(unique_model, 1,
+              function(b) sum(apply(post_g, MARGIN = 1, function(a) all(a == b))))
+cbind(unique_model[order(freq,decreasing = T),], sort(freq,decreasing = T))
+```
+```{r}
+# Select the HPD model 
+colnames(X)[as.logical(unique_model[which.max(freq),])]
+HDP_SpSl <- c(1:12)[as.logical(unique_model[which.max(freq),])]
+```
+

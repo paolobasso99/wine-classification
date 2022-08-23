@@ -1,0 +1,130 @@
+https://en.wikipedia.org/wiki/Ordered_logit
+
+```{r}
+rm(list=ls())
+library("rjags")
+wine <- readRDS(file="./data/wine.Rda")
+summary(wine)
+```
+
+```{r}
+# Define outcome and design matrix
+X <- as.matrix(wine[,1:11])
+Y <- as.vector(wine$quality)
+
+# Get dimensions
+N <- dim(X)[1]
+p <- dim(X)[2]
+```
+
+```{r}
+nLevels <- 10
+thresholds <- rep(NA,nLevels-1)
+thresholds[1] <- 1.5 # first threshold
+thresholds[nLevels-1] <- nLevels-0.5 # last threshold is 9.5
+# other thresholds are NA so they can be estimated by JAGS
+```
+
+```{=latex}
+\begin{align*}
+  Y &\sim categorical(\theta_j)
+  \theta_j &= 
+\end{align*}
+```
+
+```{r}
+cat(
+  "
+  model {
+    # Likelihood 
+    for (i in 1:N) {
+    	mu[i] <- beta0 + inprod(X[i,], beta)
+    	
+    	# thetas
+    	theta[i,1] <- pnorm(thresholds[1], mu[i], tau)
+    	for (k in 2:(nLevels-2)) {
+    	  theta[i,k] <- max(0, pnorm(thresholds[k], mu[i], tau) - pnorm(thresholds[k-1], mu[i], tau))
+    	}
+    	theta[i,nLevels-1] <- pnorm(thresholds[nLevels-1], mu[i], tau)
+    	
+    	Y[i] ~ dcat(theta[i,1:(nLevels-1)])
+    } 
+  
+    # Priors
+    beta0 ~ dnorm(0, 0.001)
+    sd ~ dunif(0, 100) # standard deviation
+    tau <- 1 / (sd * sd)
+    
+    for (j in 1:p) {
+      beta_temp[j] ~ dnorm(0, 0.001)	
+    	beta[j] <- beta_temp[j]
+    }
+    
+    # thresholds (first and last are fixed)
+    thresholdsTau <- 1/(nLevels-1)
+    for (k in 2:(nLevels-1)) {
+      thresholds[k] ~ dnorm(k+0.5, thresholdsTau)
+    }
+  }
+  "
+, file = "models/ordinal_logit.bug")
+```
+
+
+```{r}
+# Data to pass to JAGS
+data_JAGS <- list(N = N, p = p, Y = Y, X = as.matrix(X), nLevels = nLevels, thresholds = thresholds)
+
+# Compile model (+ adaptation)
+model <- jags.model("models/ordinal_logit.bug", data = data_JAGS,
+                    n.adapt = 500, n.chains = 1) 
+```
+
+```{r}
+# if we want to perform a larger burn in with not adaptation.
+cat("  Updating...\n")
+update(model,n.iter=500)
+
+# Posterior parameters JAGS has to track
+param <- c("beta0", "beta", "sd", "thresholds")
+
+# Number of iterations & thinning
+nit <- 10000
+thin <-10
+```
+
+```{r}
+# Sampling (this may take a while)
+cat("  Sampling...\n")
+output <- coda.samples(model = model,
+                       variable.names = param,
+                       n.iter = nit,
+                       thin = thin)
+
+# Save the chain
+save(output, file = 'chains/ordinal_logit.dat')
+```
+
+```{r}
+# Load chains
+load('chains/ordinal_logit.dat')
+
+# Look at the structure of the output is an mcmc object of the library coda
+str(output)
+```
+
+```{r}
+# Plot command for coda::mcmc objects (4 at a time for visual purposes)
+K <- 3
+plot(output[,(4*K+1):(4*(K+1))])
+```
+
+```{r}
+summary(output)
+```
+
+```{r}
+output <- as.matrix(output)
+```
+
+
