@@ -68,7 +68,10 @@ cat(
   }
   "
 , file = "models/ordinal_logit.bug")
+```
 
+
+```{r}
 # Data to pass to JAGS
 data_JAGS <- list(N = N, p = p, Y = Y, X = as.matrix(X), nLevels = nLevels, thresholds = thresholds)
 
@@ -83,7 +86,7 @@ cat("  Updating...\n")
 update(model,n.iter=500)
 
 # Posterior parameters JAGS has to track
-param <- c("beta0", "beta", "mdl", "sd", "thresholds")
+param <- c("beta0", "beta", "sd", "thresholds")
 
 # Number of iterations & thinning
 nit <- 10000
@@ -124,9 +127,4 @@ summary(output)
 output <- as.matrix(output)
 ```
 
-```{r}
-# We save the posterior chain of the inclusion variable in post_g
-post_g <- as.matrix(output[,13:23])
-apply(post_g, 2, "mean")
-post_mean_g <- apply(post_g, 2, "mean") 
-```
+
