@@ -1,0 +1,142 @@
+```{r}
+rm(list=ls())
+library("ggplot2")
+library(patchwork)
+library(rjags)
+library(coda)
+source("utils_functions.R")
+```
+
+
+```{r}
+wine = readRDS(file="./data/wine.Rda")
+```
+
+Pre processing data: remove outliers and scale data:
+```{r}
+df_cleaned <- remove_outliers(wine)
+df <- as.data.frame(scale(df_cleaned[, 1:(ncol(df_cleaned) - 1)]))
+df <- cbind(df, df_cleaned$quality)
+names(df)[names(df) == "df_cleaned$quality"] <- "quality"
+summary(df)
+```
+
+Divide starting set in training set and test set.
+```{r}
+set.seed(144)
+indexes = sample(1:nrow(df), size=0.5 * nrow(df))
+train <- df[-indexes,]
+test <- df[+indexes,]
+ggplot() + 
+  geom_histogram(data=train, aes(x=quality), bins=10, center=0, binwidth = 1, color=red_ex, fill=red_ex, alpha=0.4) +
+  geom_histogram(data=test, aes(x=quality), bins=10, center=0, binwidth = 1, color=light_blue_ex, fill=light_blue_ex, alpha=0.4) + 
+  xlim(c(0, 10)) 
+```
+
+Preparing data for Jags
+```{r}
+Y_train = as.vector(train$quality)
+X_train = as.matrix(train[,!names(df) %in% c("quality"), drop=F])
+```
+
+
+Writing the model.
+
+```{r}
+string_binomial <- textConnection("model{
+  # Likelihood
+  for (i in 1:N){
+    Y[i] ~ dbin(phi(beta0 + X[i,] %*% beta[]), 10)
+  }
+  # Prior
+  beta0 ~ dnorm(0, 0.01)
+  for (i in 1: P){
+    beta[i] ~ dnorm(0, 0.01)
+  }
+}")
+```
+
+```{r}
+N <- dim(X_train)[1]  # number of observations
+P <- dim(X_train)[2]
+
+data <-list(Y=Y_train, X=X_train, N=N, P=P)
+
+burn     <- 1000
+n.iter.update   <- 5000
+n.chains <- 2
+# Number of iterations & thinning
+nit <- 50000
+thin <-50
+```
+
+```{r}
+binomial_model <- jags.model(string_binomial,data = data, n.chains=n.chains,quiet=FALSE)
+```
+
+```{r}
+cat("  Updating...\n")
+update(binomial_model, n.iter=n.iter.update)
+
+# Posterior parameters JAGS has to track
+param <- c("beta0", "beta")
+
+```
+
+```{r}
+# Sampling 
+cat("  Sampling...\n")
+output <- coda.samples(model = binomial_model,
+                       variable.names = param,
+                       n.iter = nit,
+                       thin = thin)
+```
+
+```{r}
+save(output, file="chains/binomial_model_scaled.dat")
+```
+
+
+```{r}
+ggsave("pictures/binomial/gaussian_traces_thin50.png", plot=ggplot_all_traces(output, 11))
+```
+```{r}
+ggsave("pictures/binomial/gaussian_corr_thin50.png", plot=ggplot_all_autocorr(output, 11, thinning=thin))
+```
+
+
+```{r}
+ggplot_all_densities(output, 11)
+```
+#Prediction
+
+```{r}
+Y_test = as.vector(test$quality)
+X_test = as.matrix(test[,!names(test) %in% c("quality"), drop=F])
+
+beta_0 <- as.matrix(output[,12])
+betas <- as.matrix(output[, 1:11])
+```
+
+```{r}
+error = 0
+subN = length(Y_test)
+missclassified = 0
+n_iter = 500
+y_pred <- numeric(length(Y_test))
+for(i in 1:subN){
+  Xnew = X_test[i,]
+  for(g in 1:n_iter) # loop over the iterations
+    y_pred[g] = pnorm(beta_0[g] + sum(Xnew*betas[g,]), mean = 0, sd = 1 )
+  eps = (Y_test[i] - 10 * mean(y_pred[g]) )
+  error = error + (eps ** 2) 
+}
+error
+mse = error / subN
+mse
+```
+
+
+
+
+
