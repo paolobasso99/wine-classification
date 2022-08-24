@@ -330,3 +330,19 @@ ggplot_all_autocorr <- function(mc_object, n_betas, thinning, lags=c(0:15)){
   return(corrs)
 }
 
+
+# this method plots the histograms for each column of the given data frame df
+ggplot_hist_data <- function(df){
+  plt <-ggplot(data=df, aes_string(x=colnames(df)[1], y="..density..")) + geom_histogram(color=red_ex, fill=red_ex)
+  for (i in 2:ncol(df)){
+    plt <- plt + ggplot(data=df, aes_string(x=colnames(df)[i], y="..density..")) + geom_histogram(color=red_ex, fill=red_ex)
+  }
+  return (plt + plot_layout(ncol=3))
+}
+
+
+
+
+
+
+

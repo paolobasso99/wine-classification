@@ -14,47 +14,31 @@ reading data
 wine=readRDS(file="./data/wine.Rda")
 ```
 
-# Functions
+Here we import all our custom functions 
 ```{r}
 source("utils_functions.R")
 ```
 
 # Data analysis
 
-Plotting the distribution of quality wines.
+Plotting the histogram distributions for each column of the dataframe wine.
 
 ```{r}
 # settings
-alpha_density = .2
-
-bars_color = "#ea526f"
-edges_color = "#ea526f"
-  
-
-# plots
-p1 <- ggplot(data=wine, aes(x=fixed.acidity, y=..density..)) + geom_histogram(color=edges_color, fill=bars_color)
-p2 <- ggplot(data=wine, aes(x=volatile.acidity, y=..density..)) + geom_histogram(color=edges_color, fill=bars_color)
-p3 <- ggplot(data=wine, aes(x=citric.acid, y=..density..)) + geom_histogram(color=edges_color, fill=bars_color)
-p4 <- ggplot(data=wine, aes(x=residual.sugar, y=..density..)) + geom_histogram(color=edges_color, fill=bars_color)
-p5 <- ggplot(data=wine, aes(x=chlorides, y=..density..)) + geom_histogram(color=edges_color, fill=bars_color)
-p6 <- ggplot(data=wine, aes(x=free.sulfur.dioxide, y=..density..)) + geom_histogram(color=edges_color, fill=bars_color)
-p7 <- ggplot(data=wine, aes(x=total.sulfur.dioxide, y=..density..)) + geom_histogram(color=edges_color, fill=bars_color)
-p8 <- ggplot(data=wine, aes(x=density, y=..density..)) + geom_histogram(color=edges_color, fill=bars_color)
-p9 <- ggplot(data=wine, aes(x=pH, y=..density..)) + geom_histogram(color=edges_color, fill=bars_color)
-p10 <- ggplot(data=wine, aes(x=sulphates, y=..density..)) + geom_histogram(color=edges_color, fill=bars_color)
-p11 <- ggplot(data=wine, aes(x=alcohol, y=..density..)) + geom_histogram(color=edges_color, fill=bars_color)
-p12 <- ggplot(data=wine, aes(x=quality, y=..density..)) + geom_histogram(bins=10, color=edges_color, fill=bars_color, center=0, binwidth = 1) +
-  scale_x_continuous(breaks=c(0:10))
-
-#layout
-hist_plts = p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10 + p11 + p12 + plot_layout(ncol = 3)
+hist_plts <- ggplot_hist_data(wine)
 hist_plts
-ggsave("pictures/histograms.png", plot = hist_plts)
+#ggsave("pictures/histograms.png", plot = hist_plts)
 ```
+What we notice is the presence of long tails for most of the columns, this suggests
+the presence of outliers.
+A part from the alcohol, sulphates, total.sulfur.dioxide distributions, if we remove
+the tails data are symmetrically distributed.
+Quality data are highly concentrated in the range of values (5- 7): since the 
+quality is our target value, we may encounter some issues during the predictions
+as the data are unbalanced.
+
 
 ## Correlation analysis
-
-We may think using both Pearson and Spearman rank correlation coefficient
 
 Plotting correlation matrix using Pearson index.
 
@@ -62,7 +46,7 @@ Plotting correlation matrix using Pearson index.
 cor_plt <- plot_correlation(wine, "Pearson\n correlation")
 cor_plt
 # saving the correlation plot as a png picture
-ggsave("pictures/pearson.png", plot = cor_plt)
+#ggsave("pictures/pearson.png", plot = cor_plt)
 
 ```
 
@@ -75,9 +59,9 @@ melted_wine = melt(cor(wine))
 correlated_covariates = find_competitive_covariates(melted_wine, 0.5, "quality")
 correlated_covariates
 # saving the dataframe in a png file for the report
-png("pictures/competitive_covariates.png", height = 50*nrow(correlated_covariates), width = 200*ncol(correlated_covariates))
-grid.table(correlated_covariates)
-dev.off()
+#png("pictures/competitive_covariates.png", height = 50*nrow(correlated_covariates), width = 200*ncol(correlated_covariates))
+#grid.table(correlated_covariates)
+#dev.off()
 ```
 
 Here I am looking for the covariates that seems to be more significant according to the Pearson coefficient.
@@ -89,9 +73,9 @@ correlation_with_quality = correlation_with_quality[order(correlation_with_quali
 correlation_with_quality
 
 # saving the dataframe in a png file for the report
-png("pictures/correlation_score_df.png", height = 50*nrow(correlation_with_quality), width = 200*ncol(correlation_with_quality))
-grid.table(correlation_with_quality)
-dev.off()
+#png("pictures/correlation_score_df.png", height = 50*nrow(correlation_with_quality), width = 200*ncol(correlation_with_quality))
+#grid.table(correlation_with_quality)
+#dev.off()
 ```
 
 Considerations: the parameters are sorted by importance. We may expect to keep the parameters with the highest correlation index with quality while performing feature selection.
@@ -118,7 +102,7 @@ plot_correlation(filtered_wine, "Pearson\n correlation")
 ```{r}
 box_plots <- get_box_plots_wine(wine)
 box_plots
-ggsave("pictures/box_plots.png", plot = box_plots)
+#ggsave("pictures/box_plots.png", plot = box_plots)
 ```
 
 Find outliers in the original dataset.
@@ -163,7 +147,7 @@ plt_outliers <- ggplot() +
 
 plt_outliers
 
-ggsave("pictures/outliers_vs_non.png", plot = plt_outliers)
+#ggsave("pictures/outliers_vs_non.png", plot = plt_outliers)
 ```
 
 From the histograms we can notice how the quality distributions for both sets 
@@ -172,8 +156,8 @@ are comparable, thus we can not say anything about the outliers.
 
 ```{r}
 # set these values to decide which outliers to keep
-up=FALSE
-down=TRUE
+up=TRUE
+down=FALSE
 
 
 name= colnames(wine)[1] 
@@ -190,16 +174,31 @@ for (i in 2:(ncol(wine)) - 1){
   name= colnames(wine)[i] 
   no_out = handle_outlier(wine, name, remove=TRUE, up=up, down=down)
   yes_out = handle_outlier(wine, name, remove=FALSE, up=up, down=down)
-  
-  plt_outliers <- plt_outliers + ggplot() + 
+  if (nrow(no_out) != 0 & nrow(yes_out) != 0){
+      plt_outliers <- plt_outliers + ggplot() + 
     geom_histogram(data=yes_out, aes(x=quality, y=..density..), bins=10, color=red_ex, fill=red_ex, alpha=0.5, center=0,binwidth = 1) +
     geom_histogram(data=no_out, aes(x=quality, y=..density..), bins=10, color=light_blue_ex, fill=light_blue_ex, alpha=0.5, center=0,binwidth = 1) +
     scale_x_continuous(breaks=c(0:10), name=paste("quality", name))
+  }
 }
 plt = plt_outliers + plot_layout(ncol = 3)
 plt
-#ggsave("pictures/outliers_distributionsDOWN.png", plot=plt)
+#ggsave("pictures/outliers_distributionsUP.png", plot=plt)
 ```
+
+What happens if we scale the dataframe
+
+```{r}
+df.scaled <- as.data.frame(scale(cleaned))
+summary(df.scaled)
+```
+```{r}
+ggplot_hist_data(df.scaled)
+```
+
+
+
+
 
 
 
