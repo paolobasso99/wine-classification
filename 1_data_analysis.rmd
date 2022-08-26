@@ -14,8 +14,8 @@ reading data
 wine=readRDS(file="./data/wine.Rda")
 wine
 ```
-All the columns are continuos a part from the quality one.
-Free sulfure dioxide and Total sulfure dioxid are continuous covariates even thought by the values it seems they are discrete. 
+All the columns are continuous, a part from the quality one.
+Free sulfur dioxide and Total sulfur dioxide are continuous covariates even thought by the values it seems they are discrete. 
 They are continuous since they are measures (mg/L) [Conventional Measurements of Sulfur Dioxide (SO2) in Red Wine Overestimate SO2 Antimicrobial Activity ~ https://www.extension.iastate.edu/wine/wp-content/uploads/2019/04/conventional_so2_overestimates_in_red_wine_ajev_2018.pdf].
 Furthermore, with more attention we can find continuous value at rows 433 and 439.
 
