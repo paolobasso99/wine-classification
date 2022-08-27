@@ -1,8 +1,5 @@
 ```{r}
 rm(list=ls())
-install.packages("rjags")
-install.packages("ggplot2")
-install.packages("patchwork")
 library("ggplot2")
 library(patchwork)
 library(rjags)

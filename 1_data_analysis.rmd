@@ -1,3 +1,9 @@
+---
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
 # Set environment and import data
 
 ```{r}
@@ -12,21 +18,32 @@ reading data
 
 ```{r}
 wine=readRDS(file="./data/wine.Rda")
-wine
+wine[431:440, ]
+# saving the dataframe in a png file for the report
+png("pictures/example_covariates.svg", height = 50*nrow(wine[431,]), width = 200*ncol(wine))
+#grid.table(correlated_covariates)
+#dev.off()
 ```
-All the columns are continuous, a part from the quality one.
-Free sulfur dioxide and Total sulfur dioxide are continuous covariates even thought by the values it seems they are discrete. 
-They are continuous since they are measures (mg/L) [Conventional Measurements of Sulfur Dioxide (SO2) in Red Wine Overestimate SO2 Antimicrobial Activity ~ https://www.extension.iastate.edu/wine/wp-content/uploads/2019/04/conventional_so2_overestimates_in_red_wine_ajev_2018.pdf].
-Furthermore, with more attention we can find continuous value at rows 433 and 439.
 
-Here we import all our custom functions 
+All the columns are continuous, a part from the quality one. Free sulfur
+dioxide and Total sulfur dioxide are continuous covariates even thought
+by the values it seems they are discrete. They are continuous since they
+are measures (mg/L) [Conventional Measurements of Sulfur Dioxide (SO2)
+in Red Wine Overestimate SO2 Antimicrobial Activity \~
+<https://www.extension.iastate.edu/wine/wp-content/uploads/2019/04/conventional_so2_overestimates_in_red_wine_ajev_2018.pdf>].
+Furthermore, with more attention we can find continuous value at rows
+433 and 439.
+
+Here we import all our custom functions
+
 ```{r}
 source("utils_functions.R")
 ```
 
 # Data analysis
 
-Plotting the histogram distributions for each column of the dataframe wine.
+Plotting the histogram distributions for each column of the dataframe
+wine.
 
 ```{r}
 # settings
@@ -34,14 +51,14 @@ hist_plts <- ggplot_hist_data(wine)
 hist_plts
 #ggsave("pictures/histograms.png", plot = hist_plts)
 ```
-What we notice is the presence of long tails for most of the columns, this suggests
-the presence of outliers.
-A part from the alcohol, sulphates, total.sulfur.dioxide distributions, if we remove
-the tails data are symmetrically distributed.
-Quality data are highly concentrated in the range of values (5- 7): since the 
-quality is our target value, we may encounter some issues during the predictions
-as the data are unbalanced.
 
+What we notice is the presence of long tails for most of the columns,
+this suggests the presence of outliers. A part from the alcohol,
+sulphates, total.sulfur.dioxide distributions, if we remove the tails
+data are symmetrically distributed. Quality data are highly concentrated
+in the range of values (5- 7): since the quality is our target value, we
+may encounter some issues during the predictions as the data are
+unbalanced.
 
 ## Correlation analysis
 
@@ -55,9 +72,13 @@ cor_plt
 
 ```
 
-When performing predictions of quality we should care about the correlation among the covariates. If two covariates are highly correlated we may encounter strange results, so we should also consider to keep only low correlated covariates.
+When performing predictions of quality we should care about the
+correlation among the covariates. If two covariates are highly
+correlated we may encounter strange results, so we should also consider
+to keep only low correlated covariates.
 
-Find highly correlated covariates (absolute value of Pearson index greater than or equal to 0.5) here.
+Find highly correlated covariates (absolute value of Pearson index
+greater than or equal to 0.5) here.
 
 ```{r}
 melted_wine = melt(cor(wine))
@@ -69,7 +90,8 @@ correlated_covariates
 #dev.off()
 ```
 
-Here I am looking for the covariates that seems to be more significant according to the Pearson coefficient.
+Here I am looking for the covariates that seems to be more significant
+according to the Pearson coefficient.
 
 ```{r}
 correlation_with_quality = tail(melted_wine, n=12)
@@ -83,11 +105,18 @@ correlation_with_quality
 #dev.off()
 ```
 
-Considerations: the parameters are sorted by importance. We may expect to keep the parameters with the highest correlation index with quality while performing feature selection.
+Considerations: the parameters are sorted by importance. We may expect
+to keep the parameters with the highest correlation index with quality
+while performing feature selection.
 
-From the results above we can perform a prior feature selection. Given a pair of highly correlated covariates I want to discard the less significant.
+From the results above we can perform a prior feature selection. Given a
+pair of highly correlated covariates I want to discard the less
+significant.
 
-Note: here I am not doing a feature selection with the goal of finding the most significant features (this will be done with the right choice of the prior) but I am just discarding in a greedy way features that may lead to problems when training the model.
+Note: here I am not doing a feature selection with the goal of finding
+the most significant features (this will be done with the right choice
+of the prior) but I am just discarding in a greedy way features that may
+lead to problems when training the model.
 
 In this case we may consider to remove density and free.sulfur.dioxide
 
@@ -102,7 +131,6 @@ plot_correlation(filtered_wine, "Pearson\n correlation")
 ```
 
 ## Managing outliers
-
 
 ```{r}
 box_plots <- get_box_plots_wine(wine)
@@ -128,14 +156,14 @@ wine_f_m = remove_outliers(filtered_wine)
 nrow(wine_f_m)
 ```
 
+From the quality of the histogram we can notice how the quality has high
+mass on the values 5-6 and has just few values near 0 and 10 (the
+extremes). We want to understand if the outliers are somehow connected
+to very poor/good wines. If we have just few samples for bad/good wines,
+one may think the features that characterize them might be the outliers
+of the dataset. For this purpose we plot the estimated densities of the
+dataset without outliers and the quality density of the outliers.
 
-From the quality of the histogram we can notice how the quality has high mass on the
-values 5-6 and has just few values near 0 and 10 (the extremes).
-We want to understand if the outliers are somehow connected to very poor/good wines.
-If we have just few samples for bad/good wines, one may think the features that 
-characterize them might be the outliers of the dataset.
-For this purpose we plot the estimated densities of the dataset without outliers
-and the quality density of the outliers.
 ```{r}
 outliers = keep_outliers(wine)
 cleaned = remove_outliers(wine)
@@ -155,9 +183,8 @@ plt_outliers
 #ggsave("pictures/outliers_vs_non.png", plot = plt_outliers)
 ```
 
-From the histograms we can notice how the quality distributions for both sets 
-are comparable, thus we can not say anything about the outliers.
-
+From the histograms we can notice how the quality distributions for both
+sets are comparable, thus we can not say anything about the outliers.
 
 ```{r}
 # set these values to decide which outliers to keep
@@ -197,14 +224,7 @@ What happens if we scale the dataframe
 df.scaled <- as.data.frame(scale(cleaned))
 summary(df.scaled)
 ```
+
 ```{r}
 ggplot_hist_data(df.scaled)
 ```
-
-
-
-
-
-
-
-
