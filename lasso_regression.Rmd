@@ -1,0 +1,291 @@
+---
+title: "Lasso regression Model"
+output: html_notebook
+---
+
+```{r}
+rm(list=ls())
+library("ggplot2")
+library(patchwork)
+library(rjags)
+library(coda)
+source("utils_functions.R")
+
+wine <- readRDS(file="./data/wine.Rda")
+summary(wine)
+```
+
+Due to high correlation, we remove density and dioxide from the dataset before starting. (not useful for bayesian learning)
+
+```{r}
+# to_remove <- c("density", "free.sulfur.dioxide")
+# wine <- wine[, ! names(wine) %in% to_remove, drop=F]
+# wine
+```
+
+```{r}
+# Define outcome and design matrix (omit NA value)
+X <- na.omit(as.matrix(wine[,1:(dim(wine)[2]-1)]))
+Y <- na.omit(as.vector(wine$quality))
+
+# standardize matrix
+X <- scale(X)
+
+# Get dimensions
+N <- dim(X)[1]
+p <- dim(X)[2]
+```
+
+```{r}
+cat(
+  "
+  model {
+    # Likelihood 
+    for (i in 1:N) {
+    	mu[i] <- beta0 + inprod(X[i,], beta)
+    	Y[i] ~ dnorm(mu[i], tau)
+    }
+  
+  
+    # Priors
+    beta0 ~ dnorm(0, 1.0 / 25)
+    tau <- dgamma(0.1, 0.1)
+  	lambda2 ~ dgamma(0.1,0.1);
+    for (j in 1:p) {
+  	 	beta[j] ~ ddexp(0.0, 1.0/(lambda2^0.5))
+    }
+  }
+  "
+, file = "models/lassoregression.bug")
+
+# Data to pass to JAGS
+data_JAGS <- list(N = N, p = p, Y = Y, X = as.matrix(X))
+
+# A list of initial value for the MCMC algorithm 
+inits = function() {
+  list("beta0" = 0.0, "beta" = rnorm(p, 0.0, 1), .RNG.seed = 123, .RNG.name = 'base::Wichmann-Hill') 
+}
+
+# Compile model (+ adaptation)
+model <- jags.model("models/lassoregression.bug", data = data_JAGS,
+                    n.adapt = 1000, inits = inits, n.chains = 1)
+```
+
+```{r}
+# if we want to perform a larger burn in with not adaptation.
+cat("  Updating...\n")
+update(model,n.iter=1000)
+
+# Posterior parameters JAGS has to track
+param <- c("beta", "beta0", "sigma", "lambda2")
+
+# Number of iterations & thinning
+nit <- 100000
+thin <- 100
+```
+
+```{r}
+# Sampling (this may take a while)
+cat("  Sampling...\n")
+output <- coda.samples(model = model,
+                       variable.names = param,
+                       n.iter = nit,
+                       thin = thin)
+
+# Save the chain
+save(output, file = 'chains/lassoregression.dat')
+```
+
+```{r}
+# Load chains
+load('chains/lassoregression.dat')
+
+# Look at the structure of the output is an mcmc object of the library coda
+summary(output)
+```
+
+```{r}
+# shrinkage
+shr_param <- as.matrix(output)[,"lambda2"]
+
+ggplot(data.frame(x=shr_param, y = as.factor("lambda2"))) + 
+  geom_density(aes(x=shr_param, fill = y)) + 
+  theme_minimal() + theme(legend.position="none") +
+  xlab("Shrinkage Parameter") + ylab("Density")
+```
+
+```{r}
+beta0 <- as.matrix(output)[,"beta0"]
+beta <- as.matrix(output[,1:p])
+
+# compute the 95% posterior credible interval for beta
+CI_beta = apply(beta, 2, quantile, c(0.025, 0.975))
+CI_beta
+
+# compute the mean
+mean_beta_post <- apply(beta, 2, "mean")
+
+
+# PLOT THE CI
+gplots::plotCI(x = 1:p, y = mean_beta_post,
+               liw = (-CI_beta[1,] + mean_beta_post),
+               uiw = (CI_beta[2,] - mean_beta_post),
+               type = "n", lwd = 1.5,
+               main="Decision intervals for HS", ylab = "", xlab = "beta[i]")
+points(1:p, mean_beta_post, pch=16)
+abline(h = 0, col = "blue")
+```
+
+To choose the variables, we have to confront the CI of beta and the correlation between explanatory variables found in data_analysis
+
+```{r}
+# For loop to check the included variables
+idx_cov_BL = NULL
+names_cov_BL = NULL
+
+for(l in 1:p){
+  if(CI_beta[1,l]<0 && CI_beta[2,l]>0) {
+    cat("*** variable ", colnames(wine)[l], " excluded \n")
+  }
+  else {
+    cat("*** variable ", colnames(wine)[l], " included \n")
+    idx_cov_BL = c(idx_cov_BL, l)
+    names_cov_BL = c(names_cov_BL, colnames(wine)[l])
+  }
+}
+
+idx_cov_BL
+names_cov_BL
+```
+
+```{r}
+plot(output)
+```
+
+We now repeat regression only with the covariates from the selected model:
+
+```{r}
+p_ms <- length(idx_cov_BL)
+X_ms <- matrix(NA, nrow = N, ncol = p_ms)
+for (i in 1:p_ms) {
+  X_ms[,i] <- X[,idx_cov_BL[i]]
+}
+colnames(X_ms) <- names_cov_BL
+```
+
+```{r}
+cat(
+  "
+  model {
+    # Likelihood 
+    for (i in 1:N) {
+    	mu[i] <- beta0 + inprod(X_ms[i,], beta)
+    	Y[i] ~ dnorm(mu[i], tau)
+    } 
+  
+  
+    # Priors
+    beta0 ~ dnorm(0, 1.0 / 25)
+    sigma ~ dunif(0, 10)
+    tau <- 1 / (sigma^2)
+    for (j in 1:p_ms) {
+  	 	beta[j] ~ dnorm(0.0, 1.0 / 25)
+    }
+  }
+  "
+, file = "models/lassoregression_selectedmodel.bug")
+
+# Data to pass to JAGS
+data_JAGS_ms <- list(N = N, p_ms = p_ms, Y = Y, X_ms = as.matrix(X_ms))
+
+# A list of initial value for the MCMC algorithm 
+inits_ms = function() {
+  list("beta0" = 0.0, "beta" = rnorm(p_ms, 0.0, 1), .RNG.seed = 123, .RNG.name = 'base::Wichmann-Hill') 
+}
+
+# Compile model (+ adaptation)
+model_ms <- jags.model("models/lassoregression_selectedmodel.bug", data = data_JAGS_ms, n.adapt = 1000, inits = inits_ms, n.chains = 1)
+```
+
+```{r}
+# Burn-in
+cat("  Updating...\n")
+update(model_ms, n.iter=1000)
+
+# Posterior parameters JAGS has to track
+param_ms <- c("beta", "beta0", "sigma")
+
+# Number of iterations & thinning
+nit_ms <- 200000
+thin_ms <- 40
+```
+
+```{r}
+# Sampling (this may take a while)
+cat("  Sampling...\n")
+output_ms <- coda.samples(model = model_ms,
+                       variable.names = param_ms,
+                       n.iter = nit_ms,
+                       thin = thin_ms)
+
+# Save the chain
+save(output_ms, file = 'chains/lassoregression_selectedmodel.dat')
+```
+
+```{r}
+# Load chains
+load('chains/lassoregression_selectedmodel.dat')
+
+# Look at the structure of the output is an mcmc object of the library coda
+summary(output_ms)
+```
+
+```{r}
+plot(output_ms)
+```
+
+```{r}
+autocorr.plot(output_ms)
+```
+
+```{r}
+autocorr.plot(output)
+```
+
+```{r}
+path.to.folder = "C:/Users/dario/OneDrive/Desktop/BLMSprove/"
+folder.name = "quarta"
+
+save(output, file = paste(path.to.folder, folder.name, '/lassoregression.dat'))
+save(output_ms, file = paste(path.to.folder, folder.name, '/gaussianregression.dat'))
+
+pdf(file=paste(path.to.folder, folder.name, "/lassoregression_pre.pdf"))
+par(mfrow = c(2, 2))
+plot(output, auto.layout = FALSE)
+autocorr.plot(output)
+dev.off()
+
+pdf(file=paste(path.to.folder, folder.name, "/gaussianregression_post.pdf"))
+par(mfrow = c(2, 2))
+plot(output_ms, auto.layout = FALSE)
+autocorr.plot(output_ms)
+dev.off()
+
+sink(paste(path.to.folder, folder.name, "feature_selected.txt"))
+names_cov_BL
+sink()
+sink(paste(path.to.folder, folder.name, "outputpre_summary.txt"))
+summary(output)
+sink()
+sink(paste(path.to.folder, folder.name, "outputpost_summary.txt"))
+summary(output_ms)
+sink()
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
