@@ -29,8 +29,7 @@ cat(
   model {
     # Likelihood 
     for (i in 1:N) {
-    	mu[i] <- beta0 + inprod(X[i,], beta)
-    	Y[i] ~ dnorm(mu[i], tau)
+    	Y[i] ~ dbin(phi(beta0 + X[i,] %*% beta[]), 10)
     } 
   
     # Tracing the visited model
@@ -40,9 +39,7 @@ cat(
     mdl <- 1 + sum(TempIndicator[]) # model index in binary coding 
   
     # Priors
-    beta0 ~ dnorm(0, 0.001)
-    sigma ~ dunif(0, 100) # standard deviation
-    tau <- 1 / (sigma * sigma)
+    beta0 ~ dnorm(0, 0.01)
   
     for(j in 1:p) {
     	tprior[j] <- 1 / var_beta[j]
@@ -57,7 +54,7 @@ cat(
     }
   }
   "
-, file = "models/spikeslab.bug")
+, file = "models/spikeslab_bin.bug")
 
 # Data to pass to JAGS
 data_JAGS <- list(N = N, p = p, Y = Y, X = as.matrix(X), var_beta = rep(1, p))
@@ -69,7 +66,7 @@ inits = function() {
 }
 
 # Compile model (+ adaptation)
-model <- jags.model("models/spikeslab.bug", data = data_JAGS,
+model <- jags.model("models/spikeslab_bin.bug", data = data_JAGS,
                     n.adapt = 1000, inits = inits, n.chains = 1) 
 ```
 
@@ -77,16 +74,16 @@ model <- jags.model("models/spikeslab.bug", data = data_JAGS,
 # if we want to perform a larger burn in with not adaptation.
 cat("  Updating...\n")
 update(model,n.iter=1000)
+```
 
+```{r}
 # Posterior parameters JAGS has to track
-param <- c("beta0", "beta", "g", "mdl", "sigma")
+param <- c("beta0", "beta", "g", "mdl")
 
 # Number of iterations & thinning
 nit <- 100000
 thin <-100
-```
 
-```{r}
 # Sampling (this may take a while)
 cat("  Sampling...\n")
 output <- coda.samples(model = model,
@@ -95,12 +92,12 @@ output <- coda.samples(model = model,
                        thin = thin)
 
 # Save the chain
-save(output, file = 'chains/spikeslab.dat')
+save(output, file = 'chains/spikeslab_bin2.dat')
 ```
 
 ```{r}
 # Load chains
-load('chains/spikeslab.dat')
+load('chains/spikeslab_bin2.dat')
 
 # Look at the structure of the output is an mcmc object of the library coda
 summary(output)
@@ -113,8 +110,9 @@ plot(output)
 ```{r}
 autocorr.plot(output)
 ```
+
 ```{r}
-pdf(file="spikeslab.pdf")
+pdf(file="spikeslab_bin.pdf")
 par(mfrow = c(2, 2))
 plot(output, auto.layout = FALSE)
 autocorr.plot(output)
