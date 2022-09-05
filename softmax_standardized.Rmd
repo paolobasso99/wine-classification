@@ -166,33 +166,35 @@ save(samples, file="chains/categorical_standardized_gaussian_thin100.dat")
 ```{r}
 load(file="chains/categorical_standardized_gaussian_thin100.dat")
 ```
-
+Plotting the traces, correlation, and density plots of the covariates.
 
 ```{r}
+n <- names(wine)
+categories <- c()
+covariates <- c()
 betas <- c()
 for (i in 1: K){
-  for(j in 1:10)
+  for(j in 1:10){
     betas <- append(betas, paste("beta.", as.character(j), ".", as.character(i), ".", sep=""))
+    covariates<- append(covariates, n[i])
+    categories <- append(categories, j)
+  }
 }
-thin(samples)
 
+thin(samples)
+category = 0
 # SAVE THE PLOTS
-for (i in 1:(K * 10)){
+for (i in 1:(K * 10 )){
   print(i)
   x <-ggplot_traceplot(samples, betas[i])
-  ggsave(paste("pictures/categorical/traces_thin100/trace_beta", as.character(i), ".png", sep=""), plot=x)
+  ggsave(paste("pictures/categorical/traces_thin100/trace_beta_cat_", as.character(categories[i]),"_cov_", covariates[i], ".png", sep=""), plot=x)
   x <-ggplot_density_MC(samples, betas[i])
-  ggsave(paste("pictures/categorical/densities_thin100/density_beta", as.character(i), ".png", sep=""), plot=x)
-}
-
-```
-
-
-```{r}
-for (i in 1:(K * 10)){
-  print(i)
+  ggsave(paste("pictures/categorical/densities_thin100/density_beta_cat_", as.character(categories[i]),"_cov_", covariates[i], ".png", sep=""), plot=x)
   x <-ggplot_autocorr(samples, betas[i], thinning=thin(samples))
-  ggsave(paste("pictures/categorical/corr_plts_thin100/corr_beta", as.character(i), ".png", sep=""), plot=x)
-
+  ggsave(paste("pictures/categorical/corr_plts_thin100/corr_betadensity_beta_cat_", as.character(categories[i]),"_cov_",covariates[i],".png", sep=""), plot=x)
 }
+
 ```
+
+
+
