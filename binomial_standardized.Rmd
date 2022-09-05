@@ -113,8 +113,17 @@ load the chain
 ```{r}
 load(file="chains/binomial_model_scaled.dat")
 ```
+Saving statistics as png
 ```{r}
-summary(output)
+s_object = summary(output)
+stats_object = as.data.frame(s_object["statistics"])
+new_names = names(wine)
+new_names[ncol(wine)] = "intercept"
+rownames(stats_object) <- new_names
+stats_object
+png("pictures/stats_gaussian.png", height = 50*nrow(stats_object), width =200*ncol(stats_object))
+grid.table(stats_object)
+dev.off()
 ```
 
 
@@ -303,7 +312,18 @@ load(file="chains/binomial_model_scaled_lasso_thin50_alpha01.dat")
 ```
 
 ```{r}
-summary(output)
+
+s_object = summary(output)
+stats_object = as.data.frame(s_object["statistics"])
+new_names = names(wine)
+new_names[ncol(wine)] = "intercept"
+new_names <- append(new_names, "lambda")
+rownames(stats_object) <- new_names
+stats_object
+png("pictures/stats_lasso01.png", height = 50*nrow(stats_object), width =200*ncol(stats_object))
+grid.table(stats_object)
+dev.off()
+
 ```
 
 ```{r}
@@ -444,7 +464,17 @@ load(file="chains/binomial_model_scaled_lasso_thin50_alpha05.dat")
 ```
 
 ```{r}
-summary(output)
+s_object = summary(output)
+stats_object = as.data.frame(s_object["statistics"])
+new_names = names(wine)
+new_names[ncol(wine)] = "intercept"
+new_names <- append(new_names, "lambda")
+rownames(stats_object) <- new_names
+stats_object
+png("pictures/stats_lasso05.png", height = 50*nrow(stats_object), width =200*ncol(stats_object))
+grid.table(stats_object)
+dev.off()
+
 ```
 
 ```{r}
@@ -578,7 +608,17 @@ load(file="chains/binomial_model_scaled_lasso_thin50_alpha001.dat")
 ```
 
 ```{r}
-summary(output)
+s_object = summary(output)
+stats_object = as.data.frame(s_object["statistics"])
+new_names = names(wine)
+new_names[ncol(wine)] = "intercept"
+new_names <- append(new_names, "lambda")
+rownames(stats_object) <- new_names
+stats_object
+png("pictures/stats_lasso001.png", height = 50*nrow(stats_object), width =200*ncol(stats_object))
+grid.table(stats_object)
+dev.off()
+
 ```
 
 ```{r}
