@@ -113,6 +113,9 @@ load the chain
 ```{r}
 load(file="chains/binomial_model_scaled.dat")
 ```
+```{r}
+summary(output)
+```
 
 
 Save the trace plots of the posterior distributions in a png file 
@@ -124,11 +127,13 @@ Save the auto correlation plots in a png file
 ggsave("pictures/binomial/gaussian_corr_thin50.png", plot=ggplot_all_autocorr(output, 11, thinning=thin))
 ```
 
+
 Save the densities plots in a png file
 ```{r}
 p <- ggplot_all_densities(output, 11)
 ggsave("pictures/binomial/gaussian_densities50.png", plot=p)
 ```
+
 ```{r}
 beta <- as.matrix(output)[,1:12]
 CI_beta = apply(beta, 2, quantile, c(0.025, 0.975))
@@ -294,9 +299,12 @@ save(output, file="chains/binomial_model_scaled_lasso_thin50_alpha01.dat")
 ```
 
 ```{r}
-load(file="chains/binomial_model_scaled_lasso_alpha01.dat")
+load(file="chains/binomial_model_scaled_lasso_thin50_alpha01.dat")
 ```
 
+```{r}
+summary(output)
+```
 
 ```{r}
 ggsave("pictures/binomial/lasso_traces_thin50_alpha01.png", plot=ggplot_all_traces(output, 11))
@@ -309,6 +317,7 @@ ggsave("pictures/binomial/lasso_corr_thin50_alpha01.png", plot=ggplot_all_autoco
 ```{r}
 ggsave("pictures/binomial/lasso_density_thin50_alpha01.png", plot=ggplot_all_densities(output, 11))
 ```
+
 
 inv.var
 ```{r}
@@ -434,6 +443,9 @@ save(output, file="chains/binomial_model_scaled_lasso_thin50_alpha05.dat")
 load(file="chains/binomial_model_scaled_lasso_thin50_alpha05.dat")
 ```
 
+```{r}
+summary(output)
+```
 
 ```{r}
 ggsave("pictures/binomial/lasso_traces_thin50_alpha05.png", plot=ggplot_all_traces(output, 11))
@@ -566,6 +578,10 @@ load(file="chains/binomial_model_scaled_lasso_thin50_alpha001.dat")
 ```
 
 ```{r}
+summary(output)
+```
+
+```{r}
 ggsave("pictures/binomial/lasso_traces_thin50_alpha001.png", plot=ggplot_all_traces(output, 11))
 ```
 ```{r}
@@ -634,7 +650,7 @@ ggsave("pictures/binomial/CI_lasso_alpha001.png", plot=p)
 ```{r}
 load(file="chains/binomial_model_scaled_lasso_thin50_alpha001.dat")
 alpha001 = output
-load(file="chains/binomial_model_scaled_lasso_thin_alpha01.dat")
+load(file="chains/binomial_model_scaled_lasso_thin50_alpha01.dat")
 alpha01 = output
 load(file="chains/binomial_model_scaled_lasso_thin50_alpha05.dat")
 alpha05 = output
@@ -651,32 +667,132 @@ ggsave("pictures/binomial/binomial_comparison_05_vs_001.png", plot=p)
 
 ```
 
+
+# comparison between the different lasso priors:
+colors of posterior distributions:
+- red -> alpha =0.01
+-green -> alpha = 0.1
+- blue -> alpha = 0.5
+```{r}
+transparency = 0.3
+betas.names = get_beta_names(1, 11)
+densities = ggplot() + 
+  geom_density(data = data.frame(alpha001[[1]]), aes_string(x="beta0"), color=red_ex, fill=red_ex, alpha=transparency) +
+  geom_density(data = data.frame(alpha05[[1]]), aes_string(x="beta0"), color=light_blue_ex, fill=light_blue_ex, alpha=transparency) +
+  geom_density(data = data.frame(alpha01[[1]]), aes_string(x="beta0"), color=green_ex, fill=green_ex, alpha=transparency)
+for (i in 1:11){
+  new_beta = ggplot() + 
+  geom_density(data = data.frame(alpha001[[1]]), aes_string(x=betas.names[i]), color=red_ex, fill=red_ex, alpha=transparency
+               ) +
+  geom_density(data = data.frame(alpha05[[1]]), aes_string(x=betas.names[i]), color=light_blue_ex, fill=light_blue_ex, alpha=transparency) +
+  geom_density(data = data.frame(alpha01[[1]]), aes_string(x=betas.names[i]), color=green_ex, fill=green_ex, alpha=transparency)
+  densities = densities + new_beta
+}
+densities = densities +  plot_layout(ncol = 3)
+densities
+ggsave("pictures/binomial/lasso_posterior_comparisons.png", plot=densities)
+```
+
 # comparison between the different priors over lasso:
 colors of lambda:
 - red -> alpha =0.01
-- blue -> alpha = 0.5
 -green -> alpha = 0.1
+- blue -> alpha = 0.5
+
 ```{r}
 green_ex = "#8ac926"
 p <- ggplot() + 
   geom_density(data = data.frame(alpha001[[1]]), aes_string(x="lambda"), color=red_ex, fill=red_ex, alpha=0.5) +
   geom_density(data = data.frame(alpha05[[1]]), aes_string(x="lambda"), color=light_blue_ex, fill=light_blue_ex, alpha=0.5) +
   geom_density(data = data.frame(alpha01[[1]]), aes_string(x="lambda"), color=green_ex, fill=green_ex, alpha=0.5)
+
+ggsave("pictures/binomial/binomial_comparison_lasso_lambdas_red_blue_green.png", plot=p)
 ```
 
+#Comparison between posteriors gotten using a Gaussian and a Lasso
+We just choose the Lasso with \alpha = \beta = 0.1,  Since the posterior distributions using the prior Lasso are very similar(when changing the prior over the Lasso)
+```{r}
+load(file="chains/binomial_model_scaled.dat")
+gaussian = output
+load(file="chains/binomial_model_scaled_lasso_thin50_alpha01.dat")
+lasso = output
+p <- ggplot_compare_all_d(gaussian, lasso, 11)
+p
+ggsave("pictures/comparison_gaussian_lasso.png", plot=p)
+```
+
+
+
+
+# Prediction using the Lasso.
+Since the posterior distributions using the prior Lasso are very similar(when changing the prior over the Lasso), we can make prediction with just one of them for sake of simplicity.
+We just choose the one with \alpha = \beta = 0.1.
+First, take the data that has not been used to train the model and use them to make some predictions.
+Store the samples of the rergressors to compute the predictive distribution of new data.
 
 ```{r}
-load(file="chains/binomial_model_scaled_lasso_thin50_shrinked_ultra.dat")
-lasso_s = output
-load(file="chains/binomial_model_scaled_lasso_thin50.dat")
-lasso = output
-p <- ggplot_compare_all_d(lasso_s, lasso, 11)
-p
-ggsave("pictures/binomial/binomial_comparison_lasso_n_vs_ultra.png", plot=p)
-inv_lambda <-ggplot_compare_densities(lasso_s, lasso, "lambda")
-inv_lambda
-ggsave("pictures/binomial/binomial_comparison_lasso_LAMBDA_n_vs_ultra.png", plot=inv_lambda)
+Y_test = as.vector(test$quality)
+X_test = as.matrix(test[,!names(test) %in% c("quality"), drop=F])
+#load the chain of the model we want to use
+load(file="chains/binomial_model_scaled_lasso_thin50_alpha01.dat")
+beta_0 <- as.matrix(output[,12])
+betas <- as.matrix(output[, 1:11])
 ```
 
+We use these comparisons to compute the MSE error.
+We use the MSE error since this is an ordinal regression problem, thus, even though
+the labels can be seen as classes, these classes can be ordered in a meaningful way and
+so we are able to quantify the distance between two classes.
+```{r}
 
+error = 0
+subN = length(Y_test)
+missclassified = 0
+n_iter = 500
+y_pred <- numeric(length(Y_test))
+pred_vs_true = matrix(nrow=length(Y_test), ncol=3)
+
+for(i in 1:subN){
+  Xnew = X_test[i,]
+  predictive_distribution <- numeric(n_iter)
+  for(g in 1:n_iter){ # loop over the iterations
+    predictive_distribution[g] = pnorm(beta_0[g] + sum(Xnew*betas[g,]), mean = 0, sd = 1 )
+  }
+  y_pred[i] <- mean(predictive_distribution)
+  missed = Y_test[i] - round(10 * y_pred[i])
+  if (missed != 0){
+      missclassified = missclassified + 1
+  }
+  eps = (Y_test[i] - (10 * y_pred[i]))
+  error = error + (eps ** 2)
+  # storing prediction and true value in data structure needed to plot the results
+  pred_vs_true[i, 1] = i
+  pred_vs_true[i, 2] = y_pred[i] * 10
+  pred_vs_true[i, 3] = Y_test[i]
+}
+missclassified
+subN
+mse = error / subN
+mse
+```
+
+Plotting portion of results
+```{r}
+results <-data.frame(
+  "sample"=pred_vs_true[100:200,1],
+  "prediction"=pred_vs_true[100:200, 2],
+  "true_value"=pred_vs_true[100:200, 3]
+  )
+
+
+plt_results <-ggplot(data = results, mapping = aes(x = sample )) +
+    geom_hline(aes(yintercept = 0)) +
+    geom_segment(mapping = aes(xend =sample, y=true_value, yend = 0), size=1.5, color=red_ex, alpha=0.4) + 
+    geom_segment(mapping = aes(xend =sample, y=prediction, yend = 0), size=1.5, color=light_blue_ex, alpha=0.4) + 
+    scale_y_continuous(name="values", limits=c(0, 10))
+
+plt_results
+ggsave("pictures/binomial/lasso_results.png", plot=plt_results)
+
+```
 
