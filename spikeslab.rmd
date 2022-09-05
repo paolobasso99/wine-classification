@@ -1,3 +1,4 @@
+Load libraries and data:
 ```{r}
 rm(list=ls())
 library("ggplot2")
@@ -9,7 +10,7 @@ source("utils_functions.R")
 wine <- readRDS(file="./data/wine.Rda")
 summary(wine)
 ```
-
+Define labels and features, scale features:
 ```{r}
 # Define outcome and design matrix (omit NA value)
 X <- na.omit(as.matrix(wine[,1:(dim(wine)[2]-1)]))
@@ -22,15 +23,24 @@ X <- scale(X)
 N <- dim(X)[1]
 p <- dim(X)[2]
 ```
-
+$$
+\newcommand{\iid}{\stackrel{\small\mathrm{iid}}{\sim}}
+\begin{align*}
+  y_j \mid p_j &\ind B(10, p_j) \\[5pt]
+  p_j &\ind \Phi(\beta_0 + x_{\,j}^{\,T}\beta) \\[5pt]
+  \beta_j \mid \gamma_j &\ind (1-\gamma_j)\,\delta_{\{0\}} + \gamma_j\,\mathcal{N}\left(0, \sigma^2_{\beta_j}\right) \\[5pt]
+  \gamma_j \mid \theta_j &\ind \mathcal{B}e\left(\theta_j\right) \\[5pt]
+  \theta_{j} &\iid \pi\left(\theta_j\right)
+\end{align*}
+$$
+Define the JAGS model:
 ```{r}
 cat(
   "
   model {
     # Likelihood 
     for (i in 1:N) {
-    	mu[i] <- beta0 + inprod(X[i,], beta)
-    	Y[i] ~ dnorm(mu[i], tau)
+    	Y[i] ~ dbin(phi(beta0 + X[i,] %*% beta[]), 10)
     } 
   
     # Tracing the visited model
@@ -40,9 +50,7 @@ cat(
     mdl <- 1 + sum(TempIndicator[]) # model index in binary coding 
   
     # Priors
-    beta0 ~ dnorm(0, 0.001)
-    sigma ~ dunif(0, 100) # standard deviation
-    tau <- 1 / (sigma * sigma)
+    beta0 ~ dnorm(0, 0.01)
   
     for(j in 1:p) {
     	tprior[j] <- 1 / var_beta[j]
@@ -57,7 +65,7 @@ cat(
     }
   }
   "
-, file = "models/spikeslab.bug")
+, file = "models/spikeslab_bin.bug")
 
 # Data to pass to JAGS
 data_JAGS <- list(N = N, p = p, Y = Y, X = as.matrix(X), var_beta = rep(1, p))
@@ -69,24 +77,24 @@ inits = function() {
 }
 
 # Compile model (+ adaptation)
-model <- jags.model("models/spikeslab.bug", data = data_JAGS,
-                    n.adapt = 1000, inits = inits, n.chains = 1) 
+model <- jags.model("models/spikeslab_bin.bug", data = data_JAGS,
+                    n.adapt = 1000, inits = inits, n.chains = 2) 
 ```
-
+Burn in:
 ```{r}
 # if we want to perform a larger burn in with not adaptation.
 cat("  Updating...\n")
 update(model,n.iter=1000)
-
+```
+Run chain:
+```{r}
 # Posterior parameters JAGS has to track
-param <- c("beta0", "beta", "g", "mdl", "sigma")
+param <- c("beta0", "beta", "g", "mdl", "beta_temp")
 
 # Number of iterations & thinning
 nit <- 100000
 thin <-100
-```
 
-```{r}
 # Sampling (this may take a while)
 cat("  Sampling...\n")
 output <- coda.samples(model = model,
@@ -113,6 +121,7 @@ plot(output)
 ```{r}
 autocorr.plot(output)
 ```
+
 ```{r}
 pdf(file="spikeslab.pdf")
 par(mfrow = c(2, 2))
@@ -120,7 +129,7 @@ plot(output, auto.layout = FALSE)
 autocorr.plot(output)
 dev.off()
 ```
-
+Covariates inclusion analysis using the **Median Probability Model** (MPM) technique: pick variables with estimated posterior inclusion probabilities higher than $0.5$
 ```{r}
 # We save the posterior chain of the inclusion variable in post_g
 post_g <- as.matrix(output[,13:23])
@@ -144,6 +153,7 @@ post_mean_g[mp_SpSl]
 # Plot the mdl chain
 plot(output[,"mdl"], pch = 20, xlab = "Iteration", ylab = "Model")
 ```
+Covariates inclusion analysis using the **Another way to choose the model** technique: the Highest Posterior Density model (HPD) pick a model with the highest estimated posterior probability.
 ```{r}
 # Number of models visited
 length(unique( output[,"mdl"]))
