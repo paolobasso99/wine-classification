@@ -13,11 +13,11 @@ In order to do so, we use a Gibbs sampler such as JAGS.
 - in the `\chains` directory we store the Markov chains we got using JAGS. Make sure to have this folder in you working directory.
 - in the `\data` directory we store the dataset that needs to be analysed
 - `1_data_analysis.Rmd`: we make some exploratory analysis and make some considerations about the data. 
-- `binomial_standardized.Rmd`: we build a bayesian binomial regression with differente priors and make some predictions. Note: make sure to add `\\pictures` folder to
-  your working directory, furthermore, you should add `\\pictures\\binomial`.
+- `binomial_standardized.Rmd`: we build a bayesian binomial regression with differente priors and make some predictions. Note: make sure to add `\pictures` folder to
+  your working directory, furthermore, you should add `\pictures\binomial`.
 - `spikeslab.rmd`: we build a binomial regression with spikes and slab prior.
-- `softmax_standardized.Rmd`: we build a bayesian categorical softmax classifier with Gaussian prior. Note: make sure to add `\\pictures` folder to
-  your working directory, furthermore, you should add `\\pictures\\categorical`.
+- `softmax_standardized.Rmd`: we build a bayesian categorical softmax classifier with Gaussian prior. Note: make sure to add `\pictures` folder to
+  your working directory, furthermore, you should add `\pictures\categorical`.
 - `utils_functions.R`: is a file in which you can find some ggplot wrappers functions.
 
 ## Requirements
